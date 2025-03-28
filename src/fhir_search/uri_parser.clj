@@ -3,6 +3,13 @@
   (:require [clojure.walk :refer [postwalk]])
   (:import [java.net URI]))
 
+(def prefixes ["eq" "ne" "gt" "lt" "ge" "le" "sa" "eb" "ap"])
+
+(defn prefix-find "Find the prefix is present in one element. Returns empty coll when the element can't have prefix."
+  [pf-list element]
+  (filter (and #(re-find (re-pattern %) element)
+               #(not (re-find #"\p{L}" (str/replace element (re-pattern %) "")))) pf-list))
+
 
 
 (defn url-encoding [url]
@@ -26,19 +33,25 @@
                    first-group (first group)
                    second-group (second group)]
                (if (re-find #"," second-group)
-                 (conj result (->> 
+                 (conj result (->>
                                (reduce (fn [value item]
                                          (conj value {:modifiers (when (second (str/split first-group #":"))
                                                                    (keyword "fhir.search.modifier" (second (str/split first-group #":"))))
-                                                      :value item}))
-                                      [] (str/split second-group #","))
+                                                      :prefix (when (seq (prefix-find prefixes item)) (keyword "fhir.search.prefix" (first (prefix-find prefixes item))))
+                                                      :value (if (seq (prefix-find prefixes item))
+                                                               (str/replace item (re-pattern (first (prefix-find prefixes item))) "")
+                                                               item)}))
+                                       [] (str/split second-group #","))
                                (assoc {:join :fhir.search.join/or
-                                      :name (first (str/split first-group #":"))} :values)))
-                 
+                                       :name (first (str/split first-group #":"))} :values)))
+
                  (conj result {:name (first (str/split first-group #":"))
                                :modifiers (when (second (str/split first-group #":"))
                                             (keyword "fhir.search.modifier" (second (str/split first-group #":"))))
-                               :value second-group})))) [])))
+                               :prefix (when (seq (prefix-find prefixes second-group)) (keyword "fhir.search.prefix" (first (prefix-find prefixes second-group))))
+                               :value (if (seq (prefix-find prefixes second-group))
+                                        (str/replace second-group (re-pattern (first (prefix-find prefixes second-group))) "")
+                                        second-group)})))) [])))
 
 (defn path [string]
   (let [path (remove empty? (-> (.getPath (URI. string)) (str/split #"/")))
@@ -108,7 +121,12 @@
   ;;      {:modifiers :fhir.search.modifier/exact, :value "GivenB"}]}]}}
 
   (uri-parser "/Observation?code:in=http%3A%2F%2Floinc.org%7C8867-4&value-quantity=lt60%2Cgt100")
+  ;; {:type "Observation",
+  ;;  :params
+  ;;  {:join :fhir.search.join/and,
+  ;;   :values
+  ;;   [{:name "code", :modifiers :fhir.search.modifier/in, :value "http://loinc.org|8867-4"}
+  ;;    {:join :fhir.search.join/or, :name "value-quantity", :values [{:value "lt60"} {:value "gt100"}]}]}}
 
-
-  )
+  (uri-parser "/Condition?onset-date=ap2020&clinical-status=active"))
 
