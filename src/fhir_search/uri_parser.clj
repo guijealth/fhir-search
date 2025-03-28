@@ -1,4 +1,4 @@
-(ns fhir-search.uri-parser 
+(ns fhir-search.uri-parser
   (:require [clojure.string :as str])
   (:require [clojure.walk :refer [postwalk]])
   (:import [java.net URI]))
@@ -19,19 +19,29 @@
            (when fragment (str "#" fragment))))))
 
 (defn values [query]
-  (->> 
+  (->>
    (str/split query #"&")
    (reduce (fn [result element]
-             (let [group (str/split element #"=") 
-                   first-group (first group) 
+             (let [group (str/split element #"=")
+                   first-group (first group)
                    second-group (second group)]
-               (conj result {:name (first (str/split first-group #":"))
-                             :modifiers (when (second (str/split first-group #":")) 
-                                          (keyword "fhir.search.modifier" (second (str/split first-group #":"))))
-                             :value second-group}))) [])))
+               (if (re-find #"," second-group)
+                 (conj result (->> 
+                               (reduce (fn [value item]
+                                         (conj value {:modifiers (when (second (str/split first-group #":"))
+                                                                   (keyword "fhir.search.modifier" (second (str/split first-group #":"))))
+                                                      :value item}))
+                                      [] (str/split second-group #","))
+                               (assoc {:join :fhir.search.join/or
+                                      :name (first (str/split first-group #":"))} :values)))
+                 
+                 (conj result {:name (first (str/split first-group #":"))
+                               :modifiers (when (second (str/split first-group #":"))
+                                            (keyword "fhir.search.modifier" (second (str/split first-group #":"))))
+                               :value second-group})))) [])))
 
 (defn path [string]
-  (let [path (remove empty? (-> (.getPath (URI. string)) (str/split #"/"))) 
+  (let [path (remove empty? (-> (.getPath (URI. string)) (str/split #"/")))
         structure {:type (last path)}]
     (cond-> structure
       (= 3 (count path)) (assoc :compartment {:type (first path) :id (second path)})
@@ -41,7 +51,7 @@
   (let [query (.getQuery (URI. string))]
     (when query
       (hash-map :params {:join :fhir.search.join/and
-                                :values (values query)}))))
+                         :values (values query)}))))
 
 (defn clean [m]
   (postwalk (fn [v]
@@ -55,8 +65,9 @@
 (defn uri-parser [url] (postwalk clean (into (path url) (params url))))
 
 
+
 (comment
-  (url-encoding "/Observation?code=http%3A%2F%2Floinc.org%7C8867-4&value-quantity=lt60%2Cgt100") 
+  (url-encoding "/Observation?code=http%3A%2F%2Floinc.org%7C8867-4&value-quantity=lt60%2Cgt100")
   ;; "/Observation?code=http://loinc.org|8867-4&value-quantity=lt60,gt100"
 
   (path "/Condition")
@@ -84,5 +95,20 @@
   ;;             :values [{:name "code"
   ;;                    :modifiers :fhir.search.modifier/in
   ;;                    :value "http://hspc.org/ValueSet/acute-concerns"}]}}
+
+  (uri-parser "/Patient?given:exact=GivenA,GivenB")
+  ;; {:type "Patient",
+  ;;  :params
+  ;;  {:join :fhir.search.join/and,
+  ;;   :values
+  ;;   [{:join :fhir.search.join/or,
+  ;;     :name "given",
+  ;;     :values
+  ;;     [{:modifiers :fhir.search.modifier/exact, :value "GivenA"}
+  ;;      {:modifiers :fhir.search.modifier/exact, :value "GivenB"}]}]}}
+
+  (uri-parser "/Observation?code:in=http%3A%2F%2Floinc.org%7C8867-4&value-quantity=lt60%2Cgt100")
+
+
   )
 
