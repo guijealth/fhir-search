@@ -13,20 +13,6 @@
                                         #(not (re-find #"\p{L}" (str/replace element (re-pattern %) "")))) pf-list))]
     prefix))
 
-
-(defn url-encoding [url]
-  (let [uri (URI. url)
-        scheme (.getScheme uri)
-        authority (.getAuthority uri)
-        path (.getPath uri)
-        query (.getQuery uri)
-        fragment (.getFragment uri)]
-    (when uri
-      (str (when scheme (str scheme "://"))
-           authority path
-           (when query (str "?" query))
-           (when fragment (str "#" fragment))))))
-
 (defn values [query]
   (->>
    (str/split query #"&")
@@ -73,8 +59,6 @@
 
 
 (comment
-  (url-encoding "/Observation?code=http%3A%2F%2Floinc.org%7C8867-4&value-quantity=lt60%2Cgt100")
-  ;; "/Observation?code=http://loinc.org|8867-4&value-quantity=lt60,gt100"
 
   (path "/Condition")
   ;;  {:type "Condition"}
