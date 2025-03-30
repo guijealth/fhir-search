@@ -1,6 +1,8 @@
 (ns fhir-search.uri-parser
-  (:require [clojure.string :as str])
-  (:require [clojure.walk :refer [postwalk]])
+  (:require
+   [clojure.string :as str]
+   [clojure.walk :refer [postwalk]]
+   [fhir-search.complex :refer [clean]])
   (:import [java.net URI]))
 
 (def prefixes ["eq" "ne" "gt" "lt" "ge" "le" "sa" "eb" "ap"])
@@ -65,15 +67,6 @@
     (when query
       (hash-map :params {:join :fhir.search.join/and
                          :values (values query)}))))
-
-(defn clean [m]
-  (postwalk (fn [v]
-              (cond
-                (instance? clojure.lang.MapEntry v) (when-not (nil? (val v)) v)
-                (map? v) (when-let [entries (seq (remove #(-> % second nil?) v))] (into {} entries))
-                (vector? v) (when-let [coll (seq (remove nil? v))] (into [] coll))
-                (seq? v) (remove nil? v)
-                :else v)) m))
 
 (defn uri-parser [url] (postwalk clean (into (path url) (params url))))
 
