@@ -5,7 +5,7 @@
 
 (def prefixes ["eq" "ne" "gt" "lt" "ge" "le" "sa" "eb" "ap"])
 
-(defn prefix-find "Find the prefix of a number value. If more than two or the value is not the correct returns nil."
+(defn prefix-find "Find the prefix of a number value. If there are more than two prefix or the value is not the correct returns nil."
   [pf-list element]
   (when-let [prefix (first (filter (and #(re-find (re-pattern %) element)
                                         #(not (re-find #"\p{L}" (str/replace element (re-pattern %) "")))) pf-list))]
