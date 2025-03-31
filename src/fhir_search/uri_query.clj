@@ -9,35 +9,45 @@
   (when-let [[_ prefix value] (first (re-seq #"(eq|ne|gt|lt|ge|le|sa|eb|ap)?(\d.*)" element))]
     [prefix value]))
 
-(defn values [query]
-  (->>
-   (str/split query #"&")
-   (reduce (fn [result element]
-             (let [group (str/split element #"=")
-                   first-group (first group)
-                   second-group (second group)
-                   pf-group (prefix-finder second-group)]
-               (if (re-find #"," second-group)
-                 (conj result (->>
-                               (reduce (fn [value item]
-                                         (let [prefix-group (prefix-finder item)]
-                                           (conj value {:modifiers (when (second (str/split first-group #":"))
-                                                                     (keyword "fhir.search.modifier" (second (str/split first-group #":"))))
-                                                        :prefix (when (first prefix-group) (keyword "fhir.search.prefix" (first prefix-group)))
-                                                        :value (if (first prefix-group)
-                                                                 (second prefix-group)
-                                                                 item)})))
-                                       [] (str/split second-group #","))
-                               (assoc {:join :fhir.search.join/or
-                                       :name (first (str/split first-group #":"))} :values)))
+(defn param-name [string]
+  (->
+   (first (str/split string #"="))
+   (str/split #":")))
 
-                 (conj result {:name (first (str/split first-group #":"))
-                               :modifiers (when (second (str/split first-group #":"))
-                                            (keyword "fhir.search.modifier" (second (str/split first-group #":"))))
-                               :prefix (when (first pf-group) (keyword "fhir.search.prefix" (first pf-group)))
-                               :value (if (first pf-group)
-                                        (second pf-group)
-                                        second-group)})))) [])))
+(defn param-value [string]
+  (->
+   (second (str/split string #"="))
+   (str/split #",")))
+
+(defn values [query]
+  (->> (str/split query #"&")
+       (reduce (fn [result element]
+                 (let [param-name (param-name element)
+                       param-values (param-value element)]
+                   (prn (count param-values))
+                   (if (> (count param-values) 1)
+                     (conj result 
+                           (->> (reduce (fn [values item] 
+                                          (let [pf-group (prefix-finder item)]
+                                            (conj values {:modifier (when-let [modif (second param-name)] 
+                                                       (keyword "fhir.search.modifier" modif))
+                                           :prefix (when-let [prefix (first pf-group)]
+                                                     (keyword "fhir.search.prefix" prefix))
+                                           :value (if (first pf-group)
+                                                    (second pf-group)
+                                                    item)})))
+                                        [] param-values)
+                                (assoc {:join :fhir.search.join/or
+                                        :name (first param-name)} :values))) 
+                     (conj result (let [pf-group (prefix-finder (first param-values))]
+                                    {:name (first param-name)
+                                     :modifiers (when-let [modif (second param-name)]
+                                                  (keyword "fhir.search.modifier" modif))
+                                     :prefix (when-let [prefix (first pf-group)]
+                                               (keyword "fhir.search.prefix" prefix))
+                                     :value (if (first pf-group)
+                                              (second pf-group)
+                                              (first param-values))}))))) [])))
 
 (defn path [string]
   (let [path (remove empty? (str/split string #"/"))
@@ -46,14 +56,14 @@
       (= 3 (count path)) (assoc :compartment {:type (first path) :id (second path)})
       (= 2 (count path)) (assoc :component {:id (first path)}))))
 
-(defn params [query] 
-    (when query
-      (hash-map :params {:join :fhir.search.join/and
-                         :values (values query)})))
+(defn params [query]
+  (when query
+    (hash-map :params {:join :fhir.search.join/and
+                       :values (values query)})))
 
-(defn uri-parse [url] 
-    (let [uri (URI. url)]
-      (postwalk clean (into (path (.getPath uri)) (params (.getQuery uri))))))
+(defn uri-parse [url]
+  (let [uri (URI. url)]
+    (postwalk clean (into (path (.getPath uri)) (params (.getQuery uri))))))
 
 
 (comment
