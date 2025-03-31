@@ -5,13 +5,16 @@
   (postwalk (fn [v]
               (cond
                 (map-entry? v) 
-                (when-not (nil? (val v)) v)
+                (when-not (nil? (val v)) 
+                  v)
                 ;;
                 (map? v) 
-                (when-let [entries (seq (remove #(-> % second nil?) v))] (into {} entries))
+                (when-let [entries (seq (remove #(-> % second nil?) v))] 
+                  (into {} entries))
                 ;;
                 (vector? v) 
-                (when-let [coll (seq (remove nil? v))] (into [] coll))
+                (when-let [coll (seq (remove nil? v))] 
+                  (into [] coll))
                 ;;
                 (seq? v) 
                 (remove nil? v)
