@@ -23,7 +23,6 @@
        (reduce (fn [result element]
                  (let [param-name (param-name element)
                        param-values (param-value element)]
-                   (prn (count param-values))
                    (if (> (count param-values) 1)
                      (conj result
                            (->> (reduce (fn [values item]
