@@ -65,7 +65,7 @@ through examples.
 
 ```clj
 ;; /Observation 
-;;    ?code=http%3A%2F%2Floinc.org%7C8867-4
+;;    ?code:in=http%3A%2F%2Floinc.org%7C8867-4
 ;;    &value-quantity=lt60%2Cgt100
 
 {:type "Observation"
@@ -73,8 +73,8 @@ through examples.
  :params [{:name "code"
            :modifier :fhir.search.modifier/in
            :value "http://loinc.org|8867-4"}
-          {:name "value-quantity"
-           :join :fhir.search.join/or
+          {:join :fhir.search.join/or
+           :name "value-quantity"
            :values [{:prefix :fhir.search.prefix/lt
                      :value "60"}
                     {:prefix :fhir.search.prefix/gt
@@ -94,7 +94,7 @@ through examples.
 {:type "Observation"
  :join :fhir.search.join/and
  :params [{:name "code-value-quantity"
-           :join :fhir.search.join/and
+           :join :fhir.search.join/or
            :composite true
            :values [{:name "code"
                      :value "loinc|12907-2"}
