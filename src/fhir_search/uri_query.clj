@@ -26,7 +26,7 @@
 (defn comp-group [string]
   (str/split string #"\$"))
 
-(defn values [query]
+(defn params-values [query]
   (->> (str/split query #"&")
        (reduce (fn [result element]
                  (let [param-name (param-name element)
@@ -80,7 +80,7 @@
 (defn params [query]
   (when query
     (hash-map :params [{:join :fhir.search.join/and
-                        :params (values query)}])))
+                        :params (params-values query)}])))
 
 (defn uri-parse [url]
   (let [uri (URI. url)]
