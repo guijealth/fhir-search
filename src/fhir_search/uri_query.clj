@@ -19,12 +19,22 @@
    (str/split #",")))
 
 ;;Composite Parameters section
-
 (defn composite-param? [string]
   (when (re-find #"\$" string) true))
 
 (defn comp-group [string]
   (str/split string #"\$"))
+
+;;Chained parameters section
+(defn chained-params? [string]
+  (when (re-find #"\." string) true))
+
+;; Hay que dividir la query por donde están los ".", 
+;; luego se pasaría eso a param-name fn para asignar nombre y tipo.
+;; Cuando se halla parseado la cadena, hay que tener en cuenta que 
+;; si existe algún modificador siempre será el último elemento
+;; del vector.
+
 
 (defn params-values [query]
   (->> (str/split query #"&")
@@ -87,6 +97,7 @@
     (postwalk clean (into (path (.getPath uri)) (params (.getQuery uri))))))
 
 (comment
+
   (uri-parse "/Patient/p123/Condition")
   ;;  {:type "Condition", :compartment {:type "Patient", :id "p123"}}
 
