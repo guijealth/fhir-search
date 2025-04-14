@@ -70,14 +70,19 @@
                                      ;;
                                      :composite (when (composite-param? (first param-values)) true)
                                      ;;
-                                     :prefix (when-let [prefix (first pf-group)]
-                                               (keyword "fhir.search.prefix" prefix))
+                                     :prefix (when-not (composite-param? (first param-values)) (when-let [prefix (first pf-group)]
+                                               (keyword "fhir.search.prefix" prefix)))
                                      ;;
+                                     :params (cond (composite-param? (first param-values))
+                                                   [{:name (first comp-group) 
+                                                     :prefix (when-let [prefix (first pf-group)]
+                                                               (keyword "fhir.search.prefix" prefix))
+                                                     :value (if(first pf-group) (second pf-group) (second comp-group))}])
                                      ;;
                                      :value (cond
+                                              (composite-param? (first param-values))
+                                              nil
                                               (first pf-group) (second pf-group)
-                                              (composite-param? (first param-values)) [{:name (first comp-group)
-                                                                                        :value (second comp-group)}]
                                               :else (first param-values))}))))) [])))
 
 (defn path [string]
