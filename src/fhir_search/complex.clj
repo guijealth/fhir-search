@@ -30,6 +30,15 @@
                 x))
             coll))
 
+(defn delete-specific-val [coll key value]
+  (postwalk (fn [x]
+              (if (and (map? x)
+                       (contains? x key)
+                       (= value (key x)))
+                (dissoc x key value)
+                x))
+            coll))
+
 (defn seq-nest
   "Retorna una map tree de anidaciones hechas en una layer principal asociadas a un keyword con un valor dado."
   [layer  key value colls]
@@ -38,11 +47,20 @@
           layer colls))
 
 (defn search-key-val
-  "Return a vector with the key-values pairs finded" [coll key]
+  "Return a vector with the key-values pairs finded" 
+  ([coll key]
   (let [result (atom [])]
     (postwalk (fn [x]
-                (when (map? x)
+                (when (and (map? x) (contains? x key))
                   (when-let [v (key x)]
                     (swap! result conj [key v]))) x)
               coll)
     @result))
+  ([coll key value]
+   (let [result (atom [])]
+     (postwalk (fn [x]
+                 (when (and (map? x) (contains? x key))
+                   (when (= value (key x))
+                     (let[v (key x)] (swap! result conj [key v])))) x)
+               coll)
+     @result)))
