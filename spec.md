@@ -184,7 +184,7 @@ through examples.
 
 ```clj
 ;; /Patient
-;;   ?_has:Observation:patient:_has:AuditEvent:entity:agent=MyUserId
+;;   ?_has:Observation:patient._has:AuditEvent:entity:agent=MyUserId
 ;;   &name:contains=Joe
 
 {:type "Patient"
