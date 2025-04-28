@@ -1,113 +1,298 @@
 (ns fhir-search.uri-query
-  (:require [clojure.string :as str]
-            [clojure.walk :refer [postwalk]]
-            [fhir-search.complex :refer [clean]])
-  (:import [java.net URI]))
+   (:require [clojure.string :as str]
+             [fhir-search.complex :refer [clean update-specific-val
+                                          seq-nest
+                                          search-key-val
+                                          delete-specific-val]])
+   (:import [java.net URI]))
 
-(defn prefix-finder
-  [element]
-  (when-let [[_ prefix value] (first (re-seq #"(eq|ne|gt|lt|ge|le|sa|eb|ap)?(\d.*)" element))]
-    [prefix value]))
+ (defn main-layer
+   "Return the main layer of the map tree"
+   [uri-path]
+   (let [path (remove empty? (str/split uri-path #"/")) structure {}]
+     (cond-> (assoc structure :type (last path) :join :fhir.search.join/and)
+       (= 3 (count path)) (assoc :compartment {:type (first path)
+                                               :id (second path)})
+       (= 2 (count path)) (assoc :component {:id (first path)}))))
 
-(defn param-name [string]
-  (-> (first (str/split string #"="))
-      (str/split #":")))
+;; Parameter Types detectors
+ (defn chained-params?
+   "Evals if a parameter orquery string it's a chained parameter."
+   [string]
+   (cond
+     (re-find #"=" string)
+     (when-let [g (first (str/split string #"="))]
+       (when (re-find #"\." g) true))
+     :else (when (re-find #"\." string) true)))
 
-(defn param-value [string]
-  (->
-   (second (str/split string #"="))
-   (str/split #",")))
+ (defn composite-params?
+   [x]
+   (if-not (or (map? x) (coll? x))
+     (cond
+       (re-find #"=" x)
+       (when-let [g (second (str/split x #"="))]
+         (when (re-find #"\$" g) true))
+       :else (when (re-find #"\$" x) true))
+     (when (seq (search-key-val x :name)) true)))
 
-(defn values [query]
-  (->> (str/split query #"&")
-       (reduce (fn [result element]
-                 (let [param-name (param-name element)
-                       param-values (param-value element)]
-                   (if (> (count param-values) 1)
-                     (conj result
-                           (->> (reduce (fn [values item]
-                                          (let [pf-group (prefix-finder item)]
-                                            (conj values {:modifier (when-let [modif (second param-name)]
-                                                                      (keyword "fhir.search.modifier" modif))
-                                                          ;;
-                                                          :prefix (when-let [prefix (first pf-group)]
-                                                                    (keyword "fhir.search.prefix" prefix))
-                                                          ;;
-                                                          :value (if (first pf-group)
-                                                                   (second pf-group)
-                                                                   item)})))
-                                        [] param-values)
-                                (assoc {:join :fhir.search.join/or
-                                        :name (first param-name)} :values)))
-                     ;;
-                     (conj result (let [pf-group (prefix-finder (first param-values))]
-                                    {:name (first param-name)
-                                     ;;
-                                     :modifiers (when-let [modif (second param-name)]
-                                                  (keyword "fhir.search.modifier" modif))
-                                     ;;
-                                     :prefix (when-let [prefix (first pf-group)]
-                                               (keyword "fhir.search.prefix" prefix))
-                                     ;;
-                                     :value (if (first pf-group)
-                                              (second pf-group)
-                                              (first param-values))}))))) [])))
+ (defn has-param?
+   [s]
+   (cond
+     (re-find #"=" s)
+     (when-let [g (first (str/split s #"="))]
+       (when (re-find #"\_has:" g) true))
+     :else (when (re-find #"\_has:" s) true)))
 
-(defn path [string]
-  (let [path (remove empty? (str/split string #"/"))
-        structure {:type (last path)}]
-    (cond-> structure
-      (= 3 (count path)) (assoc :compartment {:type (first path) :id (second path)})
-      (= 2 (count path)) (assoc :component {:id (first path)}))))
+;;Parse functions
+ (defn prefix-finder
+   [element]
+   (when-let [[_ prefix value] (first (re-seq #"^(eq|ne|gt|lt|ge|le|sa|eb|ap)(\d.*)" element))]
+     [prefix value]))
 
-(defn params [query]
-  (when query
-    (hash-map :params {:join :fhir.search.join/and
-                       :values (values query)})))
+ (defn comp-group [string]
+   (str/split string #"\$"))
+
+;;Prefixes and modifiers function
+ (defn prefix?
+   "Returns true if there is a valid fhir prefix into arg"
+   [x] (when (first (prefix-finder x)) true))
+
+ (defn prefix
+   "Returns the current fhir prefix"
+   [p] (keyword "fhir.search.prefix" p))
+
+ (defn modifier
+   "Returns the current fhir modifier"
+   [m] (keyword "fhir.search.modifier" m))
+
+;;Important functions
+ (defn coll-keys-add [coll param]
+   (reduce (fn [o i]
+             (let [layer (cond
+                           (= i (last coll))
+                           (assoc (first i) :composite nil)
+                           (and (= i (first coll))
+                                (chained-params? param))
+                           (assoc (first i) :chain true)
+                           :else (first i))]
+               (conj o [layer])))
+           [] coll))
+
+
+
+ (defn reduce-has-chain [group]
+   (reduce (fn [o i]
+             (let [element {:name (if (= 1 (count i))
+                                    (first i)
+                                    (second i))
+                            :type (if (= 1 (count group))
+                                    (first i)
+                                    (when-not  (= 1 (count i))
+                                      (first i)))
+                            :join (when-not (= i (last group))
+                                    :fhir.search.join/and)
+                            :reverse (if (= 1 (count group)) true
+                                         (when-not (= i (last group)) true))
+                            :params nil}]
+               (if (= i (last group))
+                 (conj o [(assoc element :value nil)])
+                 (conj o [element]))))
+   [] group))
+
+(defn has-partition [string]
+  (let [has-partition (->> (remove empty? (str/split string #"\_has:"))
+                           (map #(str/split % #":"))
+                           (flatten))]
+    (partition-all 2 has-partition)))
+
+(defn has-param
+  [string]
+  (let [coll (coll-keys-add (reduce-has-chain (has-partition string)) string)]
+    (seq-nest (first (first coll)) :params nil (rest coll))))
+
+
+(defn reduce-chain [g]
+  (reduce (fn [out in]
+            (if (has-param? in)
+              (if (= in (last g)) 
+                (conj out [(has-param in)])
+                           (conj out [(delete-specific-val (has-param in) :value nil)]))
+              (let [name-type (str/split in #":")
+                    element {:name (if-not (= (last g) in)
+                                     (when-let [name (first name-type)] name)
+                                     (first name-type))
+                             :type (when-not (= (last g) in)
+                                     (when-let [type (second name-type)] type))
+                             :join (when-not (= (last g) in) :fhir.search.join/and)
+                             :modifier (when (and (= (last g) in) (re-find #":" in))
+                                         (when-let [mod (last name-type)]
+                                           (modifier mod)))
+                             :params nil}]
+                (if (= in (last g))
+                  (conj out [(assoc element :value nil)])
+                  (conj out [element]))))) [] g))
+
+(defn chained-params
+  [string]
+  (let [group (str/split string #"\.")
+        coll (coll-keys-add (reduce-chain group) string)]
+    (seq-nest (first (first coll)) :params nil (rest coll))))
+
+;; Layers functions
+(defn param-layer [string]
+  (cond
+    (chained-params? string)
+    (chained-params string)
+    ;;
+    (has-param? string)
+    (has-param string)
+      ;;
+    :else (let [group (str/split string #":")]
+            {:name (when-let [name (first group)]
+                     name)
+             :join nil
+             :modifier (when-let [mod (second group)]
+                         (modifier mod))
+             :composite nil
+             :value nil
+             :params nil})))
+
+(defn value-layer [string]
+  (let [group (str/split string #",")]
+    (reduce (fn [out in]
+              (let [comp-g (comp-group in)
+                    n (first comp-g)
+                    v (second comp-g)
+                    pfx-group (prefix-finder in)
+                    pfx (first pfx-group)
+                    value (second pfx-group)]
+                (conj out {:name (when (composite-params? in) n)
+                           :value (cond
+                                    (composite-params? in)
+                                    (if (prefix? v) (second (prefix-finder v)) v)
+                                    (prefix? in) value
+                                    :else in)
+                           :prefix (cond
+                                     (and (composite-params? in) (prefix? v))
+                                     (prefix (first (prefix-finder v)))
+                                     (prefix? in)
+                                     (prefix pfx))}))) [] group)))
+
+(defn value-ensambler [param-layer value-layer]
+  (let [modifier (first (search-key-val param-layer :modifier))]
+    (-> (if (= 1 (count value-layer))
+          (let [vl (first value-layer)]
+            (if (or (:prefix vl) (:name vl))
+              (-> (if (nil? (second modifier))
+                    param-layer
+                    (update-specific-val param-layer :modifier (second modifier) nil))
+                  (update-specific-val :params nil [(conj vl modifier)]))
+        ;;
+              (update-specific-val param-layer :value nil (:value vl))))
+      ;;
+          (-> (if (nil? (second modifier))
+                param-layer
+                (update-specific-val param-layer :modifier (second modifier) nil))
+              (update-specific-val :params nil (reduce (fn [o i]
+                                                         (conj o (conj i modifier)))
+                                                       [] value-layer))
+              (update-specific-val :join nil :fhir.search.join/or)))
+        (update-specific-val :composite nil (composite-params? value-layer)))))
+
+(defn module-creator [param]
+  (let [group (str/split param #"=")
+        pl (first group)
+        vl (second group)]
+    (value-ensambler (param-layer pl) (value-layer vl))))
+
+(defn uri-manager [path query]
+  (if (and path query)
+    (let [params (str/split query #"&")
+          values (reduce (fn [o i]
+                           (conj o (module-creator i)))
+                         [] params)]
+      (assoc (main-layer path) :params (when (seq values) values)))
+    (dissoc (main-layer path) :join)))
 
 (defn uri-parse [url]
-  (let [uri (URI. url)]
-    (postwalk clean (into (path (.getPath uri)) (params (.getQuery uri))))))
+  (let [uri (URI. url)
+        path (.getPath uri)
+        query (.getQuery uri)]
+    (clean (uri-manager path query))))
 
 (comment
-  (uri-parse "/Patient/p123/Condition")
-  ;;  {:type "Condition", :compartment {:type "Patient", :id "p123"}}
-
   (uri-parse "/Patient/p123/Condition?code:in=http%3A%2F%2Fhspc.org%2FValueSet%2Facute-concerns")
-  ;;  {:type "Condition",
-  ;;    :compartment {:type "Patient"
-  ;;                  :id "p123"}
-  ;;    :params {:join :fhir.search.join/and 
-  ;;             :values [{:name "code"
-  ;;                    :modifiers :fhir.search.modifier/in
-  ;;                    :value "http://hspc.org/ValueSet/acute-concerns"}]}}
-
+  ;; {:type "Condition"
+  ;;  :join :fhir.search.join/and
+  ;;  :compartment {:type "Patient" :id "p123"}
+  ;;  :params [{:name "code"
+  ;;            :modifier :fhir.search.modifier/in
+  ;;            :value "http://hspc.org/ValueSet/acute-concerns"}]}
   (uri-parse "/Patient?given:exact=GivenA,GivenB")
   ;; {:type "Patient",
-  ;;  :params
-  ;;  {:join :fhir.search.join/and
-  ;;   :values
-  ;;   [{:join :fhir.search.join/or
-  ;;     :name "given"
-  ;;     :values
-  ;;     [{:modifiers :fhir.search.modifier/exact
-  ;;       :value "GivenA"}
-  ;;      {:modifiers :fhir.search.modifier/exact
-  ;;       :value "GivenB"}]}]}}
-
+  ;;  :join :fhir.search.join/and,
+  ;;  :params [{:name "given",
+  ;;            :join :fhir.search.join/or,
+  ;;            :params [{:value "GivenA"
+  ;;                      :modifier :fhir.search.modifier/exact}
+  ;;          {:value "GivenB"
+  ;;           :modifier :fhir.search.modifier/exact}]}]}
   (uri-parse "/Observation?code:in=http%3A%2F%2Floinc.org%7C8867-4&value-quantity=lt60%2Cgt100")
-  ;; {:type "Observation"
+  ;; {:type "Observation",
+  ;;  :join :fhir.search.join/and,
+  ;;  :params [{:name "code", 
+  ;;            :modifier :fhir.search.modifier/in, 
+  ;;            :value "http://loinc.org|8867-4"}
+  ;;           {:name "value-quantity",
+  ;;            :join :fhir.search.join/or,
+  ;;            :params [{:value "60", 
+  ;;                      :prefix :fhir.search.prefix/lt} 
+  ;;                     {:value "100", 
+  ;;                      :prefix :fhir.search.prefix/gt}]}]}
+  (uri-parse "/DiagnosticReport?result=http://loinc.org%7C2823-3$gt5.4%7Chttp://unitsofmeasure.org%7Cmmol/L")
+  ;; {:type "DiagnosticReport",
+  ;;  :join :fhir.search.join/and,
   ;;  :params
-  ;;  {:join :fhir.search.join/and
-  ;;   :values
-  ;;   [{:name "code"
-  ;;     :modifiers :fhir.search.modifier/in
-  ;;     :value "http://loinc.org|8867-4"}
-  ;;    {:join :fhir.search.join/or
-  ;;     :name "value-quantity"
-  ;;     :values [{:prefix :fhir.search.prefix/lt
-  ;;               :value "60"} 
-  ;;             {:prefix :fhir.search.prefix/gt
-  ;;              :value "100"}]}]}} 
-  )
-
+  ;;  [{:name "result",
+  ;;    :composite true,
+  ;;    :params
+  ;;    [{:name "http://loinc.org|2823-3", :value "5.4|http://unitsofmeasure.org|mmol/L", :prefix :fhir.search.prefix/gt}]}]}
+  (uri-parse "/Observation?code-value-quantity=code$loinc%7C12907-2,value$ge150%7Chttp://unitsofmeasure.org%7Cmmol/L&based-on=ServiceRequest/f8d0ee15-43dc-4090-a2d5-379d247672eb")
+  ;; {:type "Observation",
+  ;;  :join :fhir.search.join/and,
+  ;;  :params
+  ;;  [{:name "code-value-quantity",
+  ;;    :join :fhir.search.join/or,
+  ;;    :composite true,
+  ;;    :params
+  ;;    [{:name "code", :value "loinc|12907-2"}
+  ;;     {:name "value", :value "150|http://unitsofmeasure.org|mmol/L", :prefix :fhir.search.prefix/ge}]}
+  ;;   {:name "based-on", :value "ServiceRequest/f8d0ee15-43dc-4090-a2d5-379d247672eb"}]}
+  (uri-parse "/Patient?general-practitioner.name=Joe&general-practitioner.address-state=MN")
+  ;; {:type "Patient",
+  ;;  :join :fhir.search.join/and,
+  ;;  :params
+  ;;  [[{:name "general-practitioner", :join :fhir.search.join/and, :params [{:name "name", :value "Joe"}], :chain true}]
+  ;;   [{:name "general-practitioner",
+  ;;     :join :fhir.search.join/and,
+  ;;     :params [{:name "address-state", :value "MN"}],
+  ;;     :chain true}]]}
+  (uri-parse "/DiagnisticReport?subject.name=peter")
+  ;; {:type "DiagnisticReport",
+  ;;  :join :fhir.search.join/and,
+  ;;  :params [{:name "subject", :join :fhir.search.join/and, :params [{:name "name", :value "peter"}], :chain true}]}
+  (uri-parse "/Patient?general-practitioner:PractitionerRole.practitioner:Practitioner.name:contains=John&organization=Organization/909823472760")
+  ;; {:type "Patient",
+  ;;  :join :fhir.search.join/and,
+  ;;  :params
+  ;;  [{:name "general-practitioner",
+  ;;    :type "PractitionerRole",
+  ;;    :join :fhir.search.join/and,
+  ;;    :params
+  ;;    [{:name "practitioner",
+  ;;      :type "Practitioner",
+  ;;      :join :fhir.search.join/and,
+  ;;      :params [{:name "name", :modifier :fhir.search.modifier/contains, :value "John"}]}],
+  ;;    :chain true}
+  ;;   {:name "organization", :value "Organization/909823472760"}]} 
+  (uri-parse "Patient?_has:Observation:patient._has:AuditEvent:entity:agent=MyUserId"))
