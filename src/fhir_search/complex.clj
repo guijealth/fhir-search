@@ -40,7 +40,7 @@
             coll))
 
 (defn seq-nest
-  "Retorna una map tree de anidaciones hechas en una layer principal asociadas a un keyword con un valor dado."
+  "Returns a map tree of nestings made in a main layer associated to a keyword with a given value."
   [layer  key value colls]
   (reduce (fn [o i]
             (update-specific-val o key value i))
