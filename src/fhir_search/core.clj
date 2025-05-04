@@ -65,15 +65,16 @@
                   (seq (filter :name params)) (assoc :composite true)))))
        (mapv parse-chain)))
 
-(comment
-
-  (let [fhir-query "/DiagnosticReport?subject.name=peter"
-        url ^URI (URI. fhir-query)]
+(defn parse [fhir-query]
+  (let [url ^URI (URI. fhir-query)]
     (-> (parse-path (.getPath url))
         (assoc :join :fhir.search.join/and
                :params (parse-query (.getQuery url)))
-        (clean)))
+        (clean))))
 
+(comment
 
+  (time
+   (parse "/Patient?general-practitioner:PractitionerRole.practitioner:Practitioner.name:contains=John&organization=Organization/909823472760"))
 
   :.)
