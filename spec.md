@@ -16,6 +16,20 @@ through examples.
                :id "p123"}}
 ```
 
+```clj
+;; /Condition/c123
+
+{:type "Condition"
+ :id "c123"}
+```
+
+
+```clj
+;; /Condition
+
+{:type "Condition"}
+```
+
 ### 1.2
 
 ```clj
@@ -55,7 +69,7 @@ through examples.
  :join :fhir.search.join/and
  :params [{:join :fhir.search.join/or
            :name "given"
-           :values [{:modifier :fhir.search.modifier/exact
+           :params [{:modifier :fhir.search.modifier/exact
                      :value "GivenA"}
                     {:modifier :fhir.search.modifier/exact
                      :value "GivenB"}]}]}
@@ -75,7 +89,7 @@ through examples.
            :value "http://loinc.org|8867-4"}
           {:join :fhir.search.join/or
            :name "value-quantity"
-           :values [{:prefix :fhir.search.prefix/lt
+           :params [{:prefix :fhir.search.prefix/lt
                      :value "60"}
                     {:prefix :fhir.search.prefix/gt
                      :value "100"}]}]}
@@ -96,7 +110,7 @@ through examples.
  :params [{:name "code-value-quantity"
            :join :fhir.search.join/or
            :composite true
-           :values [{:name "code"
+           :params [{:name "code"
                      :value "loinc|12907-2"}
                     {:name "value"
                      :prefix :fhir.search.prefix/ge
@@ -123,6 +137,7 @@ through examples.
            :params [{:name "practitioner"
                      :type "Practitioner"
                      :join :fhir.search.join/and
+                     :chained true
                      :params [{:name "name"
                                :modifier :fhir.search.modifier/contains
                                :value "John"}]}]}
