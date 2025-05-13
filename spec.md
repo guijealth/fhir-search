@@ -212,6 +212,7 @@ through examples.
            :params [{:name "entity"
                      :type "AuditEvent"
                      :join :fhir.search.join/and
+                     :chained true
                      :reverse true
                      :params [{:name "agent"
                                :value "MyUserId"}]}]}
