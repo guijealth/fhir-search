@@ -1,221 +1,114 @@
 (ns fhir-search.uri-query
-   (:require [clojure.string :as str]
-             [fhir-search.complex :refer [clean update-specific-val
-                                          seq-nest
-                                          search-key-val
-                                          delete-specific-val]])
-   (:import [java.net URI]))
+   (:require
+    [clojure.string :as str]
+    [fhir-search.complex :refer [clean]])
+   (:import
+    [java.net URI]))
 
- (defn main-layer
-   "Return the main layer of the map tree"
-   [uri-path]
-   (let [path (remove empty? (str/split uri-path #"/")) structure {}]
-     (cond-> (assoc structure :type (last path) :join :fhir.search.join/and)
-       (= 3 (count path)) (assoc :compartment {:type (first path)
-                                               :id (second path)})
-       (= 2 (count path)) (assoc :component {:id (first path)}))))
+(def modifier-pattern (re-pattern "(.+):(above|below|code-text|contains|exact|identifier|in|iterate|missing|not|not-in|of-type|text|text-advaced)?$"))
+(def prefix-pattern (re-pattern #"^(eq|ne|gt|lt|ge|le|sa|eb|ap)(\d.*)"))
+(def component-pattern (re-pattern #"^(.*)\$(.*)$"))
 
-;; Parameter Types detectors
- (defn chained-params?
-   "Evals if a parameter orquery string it's a chained parameter."
-   [string]
-   (cond
-     (re-find #"=" string)
-     (when-let [g (first (str/split string #"="))]
-       (when (re-find #"\." g) true))
-     :else (when (re-find #"\." string) true)))
+(defn parse-path [path]
+  (let [[part1 part2 part3 :as parts] (->> (str/split path #"/")
+                                           (remove str/blank?))]
+    (case (count parts)
+      1 {:type part1}
+      2 {:type part1, :id part2}
+      3 {:type part3, :compartment {:type part1, :id part2}})))
 
- (defn composite-params?
-   [x]
-   (if-not (or (map? x) (coll? x))
-     (cond
-       (re-find #"=" x)
-       (when-let [g (second (str/split x #"="))]
-         (when (re-find #"\$" g) true))
-       :else (when (re-find #"\$" x) true))
-     (when (seq (search-key-val x :name)) true)))
+(defn parse-value [value modifier]
+  (->> (str/split value #",")
+       (mapv (fn [v]
+               (let [[_ cmp v1] (re-find component-pattern v)
+                     [_ prefix v2] (re-find prefix-pattern (or v1 v))]
+                 {:modifier modifier
+                  :name cmp
+                  :value (or v2 v1 v)
+                  :prefix prefix})))))
 
- (defn has-param?
-   [s]
-   (cond
-     (re-find #"=" s)
-     (when-let [g (first (str/split s #"="))]
-       (when (re-find #"\_has:" g) true))
-     :else (when (re-find #"\_has:" s) true)))
+(defn build-chain "Construye una estructura anidada a partir de segmentos pre-parseados.
+   - segments: secuencia de mapas que representan eslabones de la cadena.
+   - keys-to-first: mapa con :modifier, :value, :params, :composite para el primer eslabón.
+   - addit-keys: keys adicionales mapa con keys adicionales como :chained, :reverse."
 
-;;Parse functions
- (defn prefix-finder
-   [element]
-   (when-let [[_ prefix value] (first (re-seq #"^(eq|ne|gt|lt|ge|le|sa|eb|ap)(\d.*)" element))]
-     [prefix value]))
+  [segments keys-to-first addit-keys]
+  (when (seq segments)
+    (let [seg (reverse segments)
+          {:keys [modifier value params composite]} keys-to-first
+          {:keys [chained reverse]} addit-keys]
+      (->> seg
+           (map-indexed (fn [idx item]
+                          (cond-> item
+                            (zero? idx) (assoc :modifier modifier
+                                               :value value
+                                               :params params
+                                               :composite composite)
+                            (pos? idx) (assoc :join :fhir.search.join/and))))
+           (reduce (fn [acc curr]
+                     (assoc curr
+                            :params [acc]
+                            :reverse reverse
+                            :chained chained)))))))
 
- (defn comp-group [string]
-   (str/split string #"\$"))
+(defn parse-has [param]
+  (let [{:keys [name modifier value params composite]} param
+        segments (->> (str/split name #"\.")
+                      (map #(re-seq #"(?<=:)[^:._]+" %))
+                      (flatten)
+                      (partition-all 2)
+                      (reduce (fn [acc curr]
+                                (conj acc (let [[part1 part2] curr]
+                                            (case (count curr)
+                                              1 {:name part1}
+                                              2 {:name part2
+                                                 :type part1}))))
+                              []))
+        keys-to-first {:modifier modifier
+                       :value value
+                       :params params
+                       :composite composite}
+        addit-keys {:reverse true
+                    :chained (when (re-find #"\." name) true)}]
+    (build-chain segments keys-to-first addit-keys)))
 
-;;Prefixes and modifiers function
- (defn prefix?
-   "Returns true if there is a valid fhir prefix into arg"
-   [x] (when (first (prefix-finder x)) true))
+(defn parse-chain [param]
+  (let [{:keys [name modifier value params composite]} param]
+    (if-let [chain (seq (str/split name #"\."))]
+      (let [segments (->> chain
+                          (map (fn [part]
+                                 (let [[name type] (str/split part #":")]
+                                   {:name name
+                                    :type type}))))
+            keys-to-first {:modifier modifier
+                           :value value
+                           :params params
+                           :composite composite}
+            addit-keys {:chained true}]
+        (build-chain segments keys-to-first addit-keys))
+      param)))
 
- (defn prefix
-   "Returns the current fhir prefix"
-   [p] (keyword "fhir.search.prefix" p))
+(defn parse-query [query]
+  (->> (str/split query #"&")
+       (map (fn [param]
+              (let [[key value] (str/split param #"=")
+                    [_ name mod] (re-find modifier-pattern key)
+                    modifier (when mod
+                               (keyword "fhir.search.modier" mod))
+                    params (parse-value value modifier)
+                    params-c (count params)]
+                (cond-> {:name (or name key)}
+                  (= 1 params-c) (assoc :modifier modifier
+                                        :value value)
+                  (> params-c 1) (assoc :params params)
+                  (seq (filter :name params)) (assoc :composite true)))))
+       (mapv #(if (re-find #"_has:" (:name %))
+                (parse-has %)
+                (parse-chain %)))))
 
- (defn modifier
-   "Returns the current fhir modifier"
-   [m] (keyword "fhir.search.modifier" m))
-
-;;Important functions
- (defn coll-keys-add [coll param]
-   (reduce (fn [o i]
-             (let [layer (cond
-                           (= i (last coll))
-                           (assoc (first i) :composite nil)
-                           (and (= i (first coll))
-                                (chained-params? param))
-                           (assoc (first i) :chain true)
-                           :else (first i))]
-               (conj o [layer])))
-           [] coll))
-
-
-
- (defn reduce-has-chain [group]
-   (reduce (fn [o i]
-             (let [element {:name (if (= 1 (count i))
-                                    (first i)
-                                    (second i))
-                            :type (if (= 1 (count group))
-                                    (first i)
-                                    (when-not  (= 1 (count i))
-                                      (first i)))
-                            :join (when-not (= i (last group))
-                                    :fhir.search.join/and)
-                            :reverse (if (= 1 (count group)) true
-                                         (when-not (= i (last group)) true))
-                            :params nil}]
-               (if (= i (last group))
-                 (conj o [(assoc element :value nil)])
-                 (conj o [element]))))
-   [] group))
-
-(defn has-partition [string]
-  (let [has-partition (->> (remove empty? (str/split string #"\_has:"))
-                           (map #(str/split % #":"))
-                           (flatten))]
-    (partition-all 2 has-partition)))
-
-(defn has-param
-  [string]
-  (let [coll (coll-keys-add (reduce-has-chain (has-partition string)) string)]
-    (seq-nest (first (first coll)) :params nil (rest coll))))
-
-
-(defn reduce-chain [g]
-  (reduce (fn [out in]
-            (if (has-param? in)
-              (if (= in (last g)) 
-                (conj out [(has-param in)])
-                           (conj out [(delete-specific-val (has-param in) :value nil)]))
-              (let [name-type (str/split in #":")
-                    element {:name (if-not (= (last g) in)
-                                     (when-let [name (first name-type)] name)
-                                     (first name-type))
-                             :type (when-not (= (last g) in)
-                                     (when-let [type (second name-type)] type))
-                             :join (when-not (= (last g) in) :fhir.search.join/and)
-                             :modifier (when (and (= (last g) in) (re-find #":" in))
-                                         (when-let [mod (last name-type)]
-                                           (modifier mod)))
-                             :params nil}]
-                (if (= in (last g))
-                  (conj out [(assoc element :value nil)])
-                  (conj out [element]))))) [] g))
-
-(defn chained-params
-  [string]
-  (let [group (str/split string #"\.")
-        coll (coll-keys-add (reduce-chain group) string)]
-    (seq-nest (first (first coll)) :params nil (rest coll))))
-
-;; Layers functions
-(defn param-layer [string]
-  (cond
-    (chained-params? string)
-    (chained-params string)
-    ;;
-    (has-param? string)
-    (has-param string)
-      ;;
-    :else (let [group (str/split string #":")]
-            {:name (when-let [name (first group)]
-                     name)
-             :join nil
-             :modifier (when-let [mod (second group)]
-                         (modifier mod))
-             :composite nil
-             :value nil
-             :params nil})))
-
-(defn value-layer [string]
-  (let [group (str/split string #",")]
-    (reduce (fn [out in]
-              (let [comp-g (comp-group in)
-                    n (first comp-g)
-                    v (second comp-g)
-                    pfx-group (prefix-finder in)
-                    pfx (first pfx-group)
-                    value (second pfx-group)]
-                (conj out {:name (when (composite-params? in) n)
-                           :value (cond
-                                    (composite-params? in)
-                                    (if (prefix? v) (second (prefix-finder v)) v)
-                                    (prefix? in) value
-                                    :else in)
-                           :prefix (cond
-                                     (and (composite-params? in) (prefix? v))
-                                     (prefix (first (prefix-finder v)))
-                                     (prefix? in)
-                                     (prefix pfx))}))) [] group)))
-
-(defn value-ensambler [param-layer value-layer]
-  (let [modifier (first (search-key-val param-layer :modifier))]
-    (-> (if (= 1 (count value-layer))
-          (let [vl (first value-layer)]
-            (if (or (:prefix vl) (:name vl))
-              (-> (if (nil? (second modifier))
-                    param-layer
-                    (update-specific-val param-layer :modifier (second modifier) nil))
-                  (update-specific-val :params nil [(conj vl modifier)]))
-        ;;
-              (update-specific-val param-layer :value nil (:value vl))))
-      ;;
-          (-> (if (nil? (second modifier))
-                param-layer
-                (update-specific-val param-layer :modifier (second modifier) nil))
-              (update-specific-val :params nil (reduce (fn [o i]
-                                                         (conj o (conj i modifier)))
-                                                       [] value-layer))
-              (update-specific-val :join nil :fhir.search.join/or)))
-        (update-specific-val :composite nil (composite-params? value-layer)))))
-
-(defn module-creator [param]
-  (let [group (str/split param #"=")
-        pl (first group)
-        vl (second group)]
-    (value-ensambler (param-layer pl) (value-layer vl))))
-
-(defn uri-manager [path query]
-  (if (and path query)
-    (let [params (str/split query #"&")
-          values (reduce (fn [o i]
-                           (conj o (module-creator i)))
-                         [] params)]
-      (assoc (main-layer path) :params (when (seq values) values)))
-    (dissoc (main-layer path) :join)))
-
-(defn uri-parse [url]
-  (let [uri (URI. url)
-        path (.getPath uri)
-        query (.getQuery uri)]
-    (clean (uri-manager path query))))
+(defn parse [fhir-query]
+  (let [url ^URI (URI. fhir-query)]
+    (-> (parse-path (.getPath url))
+        (assoc :join :fhir.search.join/and
+               :params (parse-query (.getQuery url)))
+        (clean))))
