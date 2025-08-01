@@ -74,8 +74,9 @@
 
 (defn parse-chain [param]
   (let [{:keys [name modifier value params composite]} param]
-    (if-let [chain (seq (str/split name #"\."))]
-      (let [segments (->> chain
+    (if (re-find #"\." name)
+     (let [chain (seq (str/split name #"\."))
+          segments (->> chain
                           (map (fn [part]
                                  (let [[name type] (str/split part #":")]
                                    {:name name
@@ -96,11 +97,12 @@
                     modifier (when mod
                                (keyword "fhir.search.modier" mod))
                     params (parse-value value modifier)
-                    params-c (count params)]
+                    params-c (count params)] 
                 (cond-> {:name (or name key)}
-                  (= 1 params-c) (assoc :modifier modifier
+                  (= 1 params-c) (assoc :modifier modifier 
                                         :value value)
-                  (> params-c 1) (assoc :params params)
+                  (> params-c 1) (assoc :join (if (re-find #"," value) :fhir.search.join/or :no-está)
+                                        :params params)
                   (seq (filter :name params)) (assoc :composite true)))))
        (mapv #(if (re-find #"_has:" (:name %))
                 (parse-has %)
@@ -112,3 +114,5 @@
         (assoc :join :fhir.search.join/and
                :params (parse-query (.getQuery url)))
         (clean))))
+
+(parse "/Observation?code:in=http%3A%2F%2Floinc.org%7C8867-4&value-quantity=lt60%2Cgt100")
