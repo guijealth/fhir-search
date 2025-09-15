@@ -1,9 +1,9 @@
 (ns fhir-search.uri-query
-   (:require
-    [clojure.string :as str]
-    [fhir-search.complex :refer [clean]])
-   (:import
-    [java.net URI]))
+  (:require
+   [clojure.string :as str]
+   [fhir-search.complex :refer [clean]])
+  (:import
+   [java.net URI]))
 
 (def modifier-pattern (re-pattern "(.+):(above|below|code-text|contains|exact|identifier|in|iterate|missing|not|not-in|of-type|text|text-advaced)?$"))
 (def prefix-pattern (re-pattern #"^(eq|ne|gt|lt|ge|le|sa|eb|ap)(\d.*)"))
@@ -27,10 +27,10 @@
                   :value (or v2 v1 v)
                   :prefix prefix})))))
 
-(defn build-chain "Construye una estructura anidada a partir de segmentos pre-parseados.
-   - segments: secuencia de mapas que representan eslabones de la cadena.
-   - keys-to-first: mapa con :modifier, :value, :params, :composite para el primer eslabón.
-   - addit-keys: keys adicionales mapa con keys adicionales como :chained, :reverse."
+(defn build-chain "Builds a nested structure from pre-parsed segments.
+ - segments: sequence of maps representing chain links.
+ - keys-to-first: map containing :modifier, :value, :params, :composite for the first link.
+ - addit-keys: map with additional keys such as :chained, :reverse."
 
   [segments keys-to-first addit-keys]
   (when (seq segments)
@@ -75,8 +75,8 @@
 (defn parse-chain [param]
   (let [{:keys [name modifier value params composite]} param]
     (if (re-find #"\." name)
-     (let [chain (seq (str/split name #"\."))
-          segments (->> chain
+      (let [chain (seq (str/split name #"\."))
+            segments (->> chain
                           (map (fn [part]
                                  (let [[name type] (str/split part #":")]
                                    {:name name
@@ -90,29 +90,30 @@
       param)))
 
 (defn parse-query [query]
-  (->> (str/split query #"&")
-       (map (fn [param]
-              (let [[key value] (str/split param #"=")
-                    [_ name mod] (re-find modifier-pattern key)
-                    modifier (when mod
-                               (keyword "fhir.search.modier" mod))
-                    params (parse-value value modifier)
-                    params-c (count params)] 
-                (cond-> {:name (or name key)}
-                  (= 1 params-c) (assoc :modifier modifier 
-                                        :value value)
-                  (> params-c 1) (assoc :join (if (re-find #"," value) :fhir.search.join/or :no-está)
-                                        :params params)
-                  (seq (filter :name params)) (assoc :composite true)))))
-       (mapv #(if (re-find #"_has:" (:name %))
-                (parse-has %)
-                (parse-chain %)))))
+  (when query
+    (->> (str/split query #"&")
+         (map (fn [param]
+                (let [[key value] (str/split param #"=")
+                      [_ name mod] (re-find modifier-pattern key)
+                      modifier (when mod
+                                 (keyword "fhir.search.modifier" mod))
+                      params (parse-value value modifier)
+                      params-c (count params)]
+                  (cond-> {:name (or name key)}
+                    (= 1 params-c) (assoc :modifier modifier
+                                          :value value)
+                    (> params-c 1) (assoc :join :fhir.search.join/or
+                                          :params params)
+                    (seq (filter :name params)) (assoc :composite true)))))
+         (mapv #(if (re-find #"_has:" (:name %))
+                  (parse-has %)
+                  (parse-chain %))))))
 
 (defn parse [fhir-query]
-  (let [url ^URI (URI. fhir-query)]
-    (-> (parse-path (.getPath url))
-        (assoc :join :fhir.search.join/and
-               :params (parse-query (.getQuery url)))
+  (let [url ^URI (URI. fhir-query)
+        path (.getPath url)
+        query (.getQuery url)]
+    (-> (parse-path path)
+        (assoc :join (when query :fhir.search.join/and)
+               :params (parse-query query))
         (clean))))
-
-(parse "/Observation?code:in=http%3A%2F%2Floinc.org%7C8867-4&value-quantity=lt60%2Cgt100")
