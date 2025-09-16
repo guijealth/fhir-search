@@ -25,7 +25,7 @@
                  {:modifier modifier
                   :name cmp
                   :value (or v2 v1 v)
-                  :prefix prefix})))))
+                  :prefix (when prefix (keyword "fhir.search.prefix" prefix))})))))
 
 (defn build-chain "Builds a nested structure from pre-parsed segments.
  - segments: sequence of maps representing chain links.
@@ -89,31 +89,31 @@
         (build-chain segments keys-to-first addit-keys))
       param)))
 
-(defn parse-query [query]
-  (when query
+(defn parse-query [query] 
+  (when-not (str/blank? query)
     (->> (str/split query #"&")
-         (map (fn [param]
-                (let [[key value] (str/split param #"=")
-                      [_ name mod] (re-find modifier-pattern key)
-                      modifier (when mod
-                                 (keyword "fhir.search.modifier" mod))
-                      params (parse-value value modifier)
-                      params-c (count params)]
-                  (cond-> {:name (or name key)}
-                    (= 1 params-c) (assoc :modifier modifier
-                                          :value value)
-                    (> params-c 1) (assoc :join :fhir.search.join/or
-                                          :params params)
-                    (seq (filter :name params)) (assoc :composite true)))))
-         (mapv #(if (re-find #"_has:" (:name %))
-                  (parse-has %)
-                  (parse-chain %))))))
+       (map (fn [param]
+              (let [[key value] (str/split param #"=")
+                    [_ name mod] (re-find modifier-pattern key)
+                    modifier (when mod
+                               (keyword "fhir.search.modifier" mod))
+                    params (parse-value value modifier) 
+                    params-c (count params)]
+                (cond-> {:name (or name key)}
+                  (= 1 params-c) (merge (-> params first clean))
+                  (> params-c 1) (assoc :join :fhir.search.join/or
+                                        :params params)
+                  (seq (filter :name params)) (assoc :composite true)))))
+       (mapv #(if (re-find #"_has:" (:name %))
+                (parse-has %)
+                (parse-chain %))))))
 
 (defn parse [fhir-query]
   (let [url ^URI (URI. fhir-query)
         path (.getPath url)
         query (.getQuery url)]
     (-> (parse-path path)
-        (assoc :join (when query :fhir.search.join/and)
+        (assoc :join (when-not (str/blank? query) 
+                       :fhir.search.join/and)
                :params (parse-query query))
         (clean))))

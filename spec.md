@@ -101,9 +101,7 @@ through examples.
 
 
 ```clj
-;; /Observation
-;;    ?code-value-quantity=code$loinc|12907-2,value$ge150|http://unitsofmeasure.org|mmol/L
-;;    &based-on=ServiceRequest/f8d0ee15-43dc-4090-a2d5-379d247672eb
+;; /Observation?code-value-quantity%3Dcode%24loinc%7C12907-2%2Cvalue%24ge150%7Chttp%3A%2F%2Funitsofmeasure.org%7Cmmol%2FL%26based-on%3DServiceRequest%2Ff8d0ee15-43dc-4090-a2d5-379d247672eb
 
 {:type "Observation"
  :join :fhir.search.join/and
@@ -124,9 +122,7 @@ through examples.
 ### 4.1
 
 ```clj
-;; /Patient
-;;    ?general-practitioner:PractitionerRole.practitioner:Practitioner.name:contains=John
-;;    &organization=Organization/909823472760
+;; /Patient?general-practitioner%3APractitionerRole.practitioner%3APractitioner.name%3Acontains%3DJohn%26organization%3DOrganization%2F909823472760
 
 {:type "Patient"
  :join :fhir.search.join/and
