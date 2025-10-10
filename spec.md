@@ -33,8 +33,7 @@ through examples.
 ### 1.2
 
 ```clj
-;; /Patient/p123/Condition
-;;    ?code:in=http%3A%2F%2Fhspc.org%2FValueSet%2Facute-concerns
+;; /Patient/p123/Condition?code:in=http%3A%2F%2Fhspc.org%2FValueSet%2Facute-concerns
 
 {:type "Condition"
  :compartment {:type "Patient"
@@ -78,9 +77,7 @@ through examples.
 ### 2.3
 
 ```clj
-;; /Observation 
-;;    ?code:in=http%3A%2F%2Floinc.org%7C8867-4
-;;    &value-quantity=lt60%2Cgt100
+;; /Observation?code:in=http%3A%2F%2Floinc.org%7C8867-4&value-quantity=lt60%2Cgt100
 
 {:type "Observation"
  :join :fhir.search.join/and
@@ -173,9 +170,7 @@ through examples.
 ### 4.4
 
 ```clj
-;; /Patient
-;;    ?general-practitioner.name=Joe
-;;    &general-practitioner.address-state=MN
+;; /Patient?general-practitioner.name=Joe&general-practitioner.address-state=MN
 
 {:type "Patient"
  :join :fhir.search.join/and
@@ -192,27 +187,54 @@ through examples.
 ```
 
 ## 5 Reverse chaining (https://www.hl7.org/fhir/search.html#has)
-
+### 5.1
 ```clj
-;; /Patient
-;;   ?_has:Observation:patient._has:AuditEvent:entity:agent=MyUserId
-;;   &name:contains=Joe
+;; /Patient?_has:Observation:patient:code=1234-5
+
+{:type "Patient"
+ :join :fhir.search.join/and
+ :params [{:name "patient"
+           :type "Observation"
+           :reverse true
+           :join :fhir.search.join/and
+           :params [{:name "code"
+                     :value "1234-5"}]}]}
+
+```
+### 5.2
+```clj
+;; /Patient?_has:Observation:patient:_has:AuditEvent:entity:agent=MyUserId&name:contains=Joe
 
 {:type "Patient"
  :join :fhir.search.join/and
  :params [{:name "patient"
            :type "Observation"
            :join :fhir.search.join/and
-           :chained true
            :reverse true
            :params [{:name "entity"
                      :type "AuditEvent"
                      :join :fhir.search.join/and
-                     :chained true
                      :reverse true
                      :params [{:name "agent"
                                :value "MyUserId"}]}]}
           {:name "name"
            :modifier :fhir.search.modifier/contains
            :value "Joe"}]}
+```
+### 5.3
+```clj 
+;; /Encounter?patient._has:Group:member:_id=102
+
+{:type "Encounter"
+ :join :fhir.search.join/and
+ :params [{:name "patient"
+           :chained true
+           :join :fhir.search.join/and
+           :params [{:name "member"
+                     :type "Group"
+                     :reverse true
+                     :join :fhir.search.join/and
+                     :params [{:name "_id"
+                               :value "102"}]}]}]}
+
 ```

@@ -1,0 +1,99 @@
+{"created" {:modifiers [] :prefixes ["eq" "ne" "gt" "lt" "ge" "le" "sa" "eb" "ap"]}
+ "issued" {:modifiers [] :prefixes ["eq" "ne" "gt" "lt" "ge" "le" "sa" "eb" "ap"]}
+ "birthdate" {:modifiers [] :prefixes ["eq" "ne" "gt" "lt" "ge" "le" "sa" "eb" "ap"]}
+ "date" {:modifiers [] :prefixes ["eq" "ne" "gt" "lt" "ge" "le" "sa" "eb" "ap"]}
+ "death-date" {:modifiers [] :prefixes ["eq" "ne" "gt" "lt" "ge" "le" "sa" "eb" "ap"]}
+ "value-date" {:modifiers [] :prefixes ["eq" "ne" "gt" "lt" "ge" "le" "sa" "eb" "ap"]}
+ "authored" {:modifiers [] :prefixes ["eq" "ne" "gt" "lt" "ge" "le" "sa" "eb" "ap"]}
+ "abatement-date" {:modifiers [] :prefixes ["eq" "ne" "gt" "lt" "ge" "le" "sa" "eb" "ap"]}
+ "activity-date" {:modifiers [] :prefixes ["eq" "ne" "gt" "lt" "ge" "le" "sa" "eb" "ap"]}
+ "period" {:modifiers [] :prefixes ["eq" "ne" "gt" "lt" "ge" "le" "sa" "eb" "ap"]}
+ "_lastUpdated" {:modifiers [] :prefixes ["eq" "ne" "gt" "lt" "ge" "le" "sa" "eb" "ap"]}
+ "component-value-quantity" {:modifiers [] :prefixes ["eq" "ne" "gt" "lt" "ge" "le" "sa" "eb" "ap"]}
+ "value-quantity" {:modifiers [] :prefixes ["eq" "ne" "gt" "lt" "ge" "le" "sa" "eb" "ap"]}
+ "combo-value-quantity" {:modifiers [] :prefixes ["eq" "ne" "gt" "lt" "ge" "le" "sa" "eb" "ap"]}
+ "abatement-age" {:modifiers [] :prefixes ["eq" "ne" "gt" "lt" "ge" "le" "sa" "eb" "ap"]}
+ "length" {:modifiers [] :prefixes ["eq" "ne" "gt" "lt" "ge" "le" "sa" "eb" "ap"]}
+ "activity-code" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "specialty" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "component-value-concept" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "priority" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "combo-data-absent-reason" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "service-category" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "body-site" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "component-data-absent-reason" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "address-use" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "address-country" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "class" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "gender" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "subject-status" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "address-city" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "combo-code" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "combo-value-concept" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "appointment-type" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "status" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "identifier" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "email" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "phone" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "telecom" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "active" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "data-absent-reason" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "part-status" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "language" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "deceased" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "code" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "category" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "service-type" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "method" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "intent" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "type" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "reason-code" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "value-concept" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "special-arrangement" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "address-state" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "component-code" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "address-postalcode" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "participant-type" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "_tag" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "_security" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
+ "device" {:modifiers ["identifier"] :prefixes []}
+ "based-on" {:modifiers ["identifier"] :prefixes []}
+ "has-member" {:modifiers ["identifier"] :prefixes []}
+ "reason-reference" {:modifiers ["identifier"] :prefixes []}
+ "service-provider" {:modifiers ["identifier"] :prefixes []}
+ "practitioner" {:modifiers ["identifier"] :prefixes []}
+ "diagnosis" {:modifiers ["identifier"] :prefixes []}
+ "focus" {:modifiers ["identifier"] :prefixes []}
+ "part-of" {:modifiers ["identifier"] :prefixes []}
+ "activity-reference" {:modifiers ["identifier"] :prefixes []}
+ "general-practitioner" {:modifiers ["identifier"] :prefixes []}
+ "condition" {:modifiers ["identifier"] :prefixes []}
+ "encounter" {:modifiers ["identifier"] :prefixes []}
+ "participant" {:modifiers ["identifier"] :prefixes []}
+ "episode-of-care" {:modifiers ["identifier"] :prefixes []}
+ "care-team" {:modifiers ["identifier"] :prefixes []}
+ "context" {:modifiers ["identifier"] :prefixes []}
+ "link" {:modifiers ["identifier"] :prefixes []}
+ "subject" {:modifiers ["identifier"] :prefixes []}
+ "specimen" {:modifiers ["identifier"] :prefixes []}
+ "account" {:modifiers ["identifier"] :prefixes []}
+ "asserter" {:modifiers ["identifier"] :prefixes []}
+ "organization" {:modifiers ["identifier"] :prefixes []}
+ "derived-from" {:modifiers ["identifier"] :prefixes []}
+ "patient" {:modifiers ["identifier"] :prefixes []}
+ "goal" {:modifiers ["identifier"] :prefixes []}
+ "performer" {:modifiers ["identifier"] :prefixes []}
+ "location" {:modifiers ["identifier"] :prefixes []}
+ "name" {:modifiers ["exact" "contains"] :prefixes []}
+ "given" {:modifiers ["exact" "contains"] :prefixes []}
+ "family" {:modifiers ["exact" "contains"] :prefixes []}
+ "address" {:modifiers ["exact" "contains"] :prefixes []}
+ "abatement-string" {:modifiers ["exact" "contains"] :prefixes []}
+ "value-string" {:modifiers ["exact" "contains"] :prefixes []}
+ "_content" {:modifiers ["exact" "contains"] :prefixes []}
+ "_text" {:modifiers ["exact" "contains"] :prefixes []}
+ "accession" {:modifiers ["exact" "contains"] :prefixes []}
+ "instantiates-uri" {:modifiers ["below" "above"] :prefixes []}
+ "_profile" {:modifiers ["below" "above"] :prefixes []}
+ "instantiates-canonical" {:modifiers ["below" "above"] :prefixes []}
+ "_id" {:modifiers [] :prefixes []}}
