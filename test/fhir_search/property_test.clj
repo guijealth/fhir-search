@@ -8,7 +8,7 @@
             [fhir-search.complex :refer [clean]]
             [clojure.edn :as edn]
             [clojure.string :as str])
-  (:import [java.net URLEncoder]))
+  (:import [java.net URLEncoder URLDecoder]))
 
 (def simple-resource-types
   (edn/read-string (slurp "resources/fhir_resource_types_samples.edn")))
@@ -46,17 +46,39 @@
 
 
 
-;; Only supports ASTs up to 3.1 spec
-(defn stringify-param [{:keys [name modifier prefix join value params]}]
-  (let [param-fn #(str %1
-                       (when %2 (str ":" (clojure.core/name %2)))
-                       "%3D");; %3D is "=" encoded
-        value-fn (fn [n p v] 
-                    (str 
-                     (when n (str n "%24"));;%24 is "$" encoded
-                     (when p (clojure.core/name p))
-                       (URLEncoder/encode v "UTF-8")))]
+;; Only supports ASTs up to 4.4 spec
+(defn stringify-param [{:keys [name type modifier prefix chained reverse join value params] :as full-param}]
+  (let [param-fn (fn [n m]
+                   (str n
+                        (when m (str "%3A" (clojure.core/name m)))
+                        "%3D"));; %3D is "=" encoded
+        value-fn (fn [n p v]
+                   (str
+                    (when n (str n "%24"));;%24 is "$" encoded
+                    (when p (clojure.core/name p))
+                    (URLEncoder/encode v "UTF-8")))]
     (cond
+      (some? chained)
+      ;;
+      (if reverse
+        (->> (loop [ast (first params) full-name (str "_has%3A" type (when type "%3A") name "%3A")]
+               (if (nil? (:chained ast))
+                 (merge {:name (str full-name (:name ast))}
+                        (dissoc ast :name))
+                 (let [{:keys [name type params]} ast]
+                   (recur (first params)
+                          (str full-name "_has%3A" type (when type "%3A") name "%3A")))))
+             recur)
+        
+        (->> (loop [ast (first params) full-name (str name (when type (str "%3A" type)) "%3A")]
+                 (if (nil? (:chained ast))
+                   (merge {:name (str full-name (:name ast))}
+                          (dissoc ast :name))
+                   (let [{:keys [name type params]} ast]
+                     (recur (first params)
+                            (str full-name name (when type (str "%3A" type)) "%3A")))))
+               recur))
+      ;;
       (some? value)
       ;;
       (str (param-fn name modifier)
@@ -68,7 +90,9 @@
                      (conj o (value-fn name prefix value)))
                    [] params)
            (str/join "%2C")
-           (str (param-fn name (-> params first :modifier)))))))
+           (str (param-fn name (-> params first :modifier))))
+      ;;
+      )))
 
 
 (defn ast-to-url [{:keys [type params]}]
@@ -99,20 +123,7 @@
 
 (comment
   (tc/quick-check 100000 parsed-url-with-params-property)
-  (tc/quick-check 100000 round-trip) 
-  
-  (ast-to-url {:type "Observation"
-   :join :fhir.search.join/and
-   :params [{:name "code-value-quantity"
-             :join :fhir.search.join/or
-             :composite true
-             :params [{:name "code"
-                       :value "loinc|12907-2"}
-                      {:name "value"
-                       :prefix :fhir.search.prefix/ge
-                       :value "150|http://unitsofmeasure.org|mmol/L"}]}
-            {:name "based-on"
-             :value "ServiceRequest/f8d0ee15-43dc-4090-a2d5-379d247672eb"}]})
-  
+  (tc/quick-check 100000 round-trip)
 
-   :.)
+  
+  :.)

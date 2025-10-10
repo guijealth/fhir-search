@@ -34,45 +34,71 @@
  - keys-to-first: map containing :modifier, :value, :params, :composite for the first link.
  - addit-keys: map with additional keys such as :chained, :reverse."
 
-  [segments keys-to-first addit-keys]
-  (when (seq segments)
-    (let [seg (reverse segments)
-          {:keys [modifier value params composite]} keys-to-first
-          {:keys [chained reverse]} addit-keys]
-      (->> seg
-           (map-indexed (fn [idx item]
-                          (cond-> item
-                            (zero? idx) (assoc :modifier modifier
-                                               :value value
-                                               :params params
-                                               :composite composite)
-                            (pos? idx) (assoc :join :fhir.search.join/and))))
-           (reduce (fn [acc curr]
-                     (assoc curr
-                            :params [acc]
-                            :reverse reverse
-                            :chained chained)))))))
+  ([segments keys-to-first addit-keys]
+   (when (seq segments)
+     (let [seg (reverse segments)
+           {:keys [modifier value params composite]} keys-to-first
+           {:keys [chained]} addit-keys]
+       (->> seg
+            (map-indexed (fn [idx item]
+                           (cond-> item
+                             (zero? idx) (assoc :modifier modifier
+                                                :value value
+                                                :params params
+                                                :composite composite)
+                             (pos? idx) (assoc :join :fhir.search.join/and))))
+            (reduce (fn [acc curr]
+                      (assoc curr
+                             :params [acc]
+                             :chained chained)))))))
+  ([segments keys-to-first]
+   (when (seq segments)
+     (let [seg (reverse segments)
+           {:keys [modifier value params composite]} keys-to-first]
+       (->> seg
+            (map-indexed (fn [idx item]
+                           (cond-> item
+                             (zero? idx) (assoc :modifier modifier
+                                                :value value
+                                                :params params
+                                                :composite composite)
+                             (pos? idx) (assoc :join :fhir.search.join/and))))
+            (reduce (fn [acc curr]
+                      (assoc curr
+                             :params [acc]))))))))
 
 (defn parse-has [param]
   (let [{:keys [name modifier value params composite]} param
-        segments (->> (str/split name #"\.")
-                      (map #(re-seq #"(?<=:)[^:._]+" %))
-                      (flatten)
-                      (partition-all 2)
-                      (reduce (fn [acc curr]
-                                (conj acc (let [[part1 part2] curr]
-                                            (case (count curr)
-                                              1 {:name part1}
-                                              2 {:name part2
-                                                 :type part1}))))
-                              []))
+        split-name (str/split name #"\.")
+        forward-part (drop-last split-name)
+        reverse-part (->> (list (last split-name))
+                          (map (fn [s]
+                                 (if (str/includes? s "_has:")
+                                   (re-seq #"(?<=:)(?!_has\b)[^:.]+" s)
+                                   s)))
+                          (flatten)
+                          (partition-all 2))
+        forward-segments (->> forward-part
+                              (mapv (fn [part]
+                                      (let [[name type] (str/split part #":")]
+                                        {:name name
+                                         :chained true
+                                         :type type}))))
+        reverse-segments (->> reverse-part
+                              (reduce (fn [acc curr]
+                                        (conj acc (let [[part1 part2] curr
+                                                        result (case (count curr)
+                                                                 1 {:name part1}
+                                                                 2 {:name part2
+                                                                    :type part1})]
+                                                    (if-not (= curr (last reverse-part)) (assoc result :reverse true) result))))
+                                      []))
+        all-segments (into forward-segments reverse-segments)
         keys-to-first {:modifier modifier
                        :value value
                        :params params
-                       :composite composite}
-        addit-keys {:reverse true
-                    :chained (when (re-find #"\." name) true)}]
-    (build-chain segments keys-to-first addit-keys)))
+                       :composite composite}]
+    (build-chain all-segments keys-to-first)))
 
 (defn parse-chain [param]
   (let [{:keys [name modifier value params composite]} param]
