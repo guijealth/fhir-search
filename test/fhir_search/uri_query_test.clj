@@ -147,25 +147,49 @@
 
 (deftest reverse-chaining-parsing-tests
   
-  (testing "5.1 Reverse chaining with _has"
-    (let [input "/Patient?_has:Observation:patient._has:AuditEvent:entity:agent=MyUserId&name:contains=Joe"
+  (testing "5.1 Simple reverse chaining with _has"
+    (let [input "/Patient?_has:Observation:patient:code=1234-5"
           expected {:type "Patient"
                     :join :fhir.search.join/and
                     :params [{:name "patient"
                               :type "Observation"
+                              :reverse true
                               :join :fhir.search.join/and
-                              :chained true
+                              :params [{:name "code"
+                                        :value "1234-5"}]}]}]
+      (is (= expected (fq/parse input)))))
+  
+  (testing "5.2 Nested reverse chaining with _has"
+    (let [input "/Patient?_has:Observation:patient:_has:AuditEvent:entity:agent=MyUserId&name:contains=Joe"
+          expected {:type "Patient"
+                    :join :fhir.search.join/and
+                    :params [{:name "patient"
+                              :type "Observation"
+                              :join :fhir.search.join/and 
                               :reverse true
                               :params [{:name "entity"
                                         :type "AuditEvent"
-                                        :join :fhir.search.join/and
-                                        :chained true
+                                        :join :fhir.search.join/and 
                                         :reverse true
                                         :params [{:name "agent"
                                                   :value "MyUserId"}]}]}
                              {:name "name"
                               :modifier :fhir.search.modifier/contains
                               :value "Joe"}]}]
+      (is (= expected (fq/parse input)))))
+  (testing "5.3 Mixted reverse chaining with forward and reverse segments."
+    (let [input "/Encounter?patient._has:Group:member:_id=102"
+          expected {:type "Encounter"
+                    :join :fhir.search.join/and
+                    :params [{:name "patient"
+                              :chained true
+                              :join :fhir.search.join/and
+                              :params [{:name "member"
+                                        :type "Group"
+                                        :reverse true
+                                        :join :fhir.search.join/and
+                                        :params [{:name "_id"
+                                                  :value "102"}]}]}]}]
       (is (= expected (fq/parse input))))))
 
 (deftest edge-cases-tests 

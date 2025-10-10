@@ -56,34 +56,34 @@
  "participant-type" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
  "_tag" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
  "_security" {:modifiers ["text" "not" "above" "below" "in" "not-in" "of-type"] :prefixes []}
- "device" {:modifiers ["identifier" "type"] :prefixes []}
- "based-on" {:modifiers ["identifier" "type"] :prefixes []}
- "has-member" {:modifiers ["identifier" "type"] :prefixes []}
- "reason-reference" {:modifiers ["identifier" "type"] :prefixes []}
- "service-provider" {:modifiers ["identifier" "type"] :prefixes []}
- "practitioner" {:modifiers ["identifier" "type"] :prefixes []}
- "diagnosis" {:modifiers ["identifier" "type"] :prefixes []}
- "focus" {:modifiers ["identifier" "type"] :prefixes []}
- "part-of" {:modifiers ["identifier" "type"] :prefixes []}
- "activity-reference" {:modifiers ["identifier" "type"] :prefixes []}
- "general-practitioner" {:modifiers ["identifier" "type"] :prefixes []}
- "condition" {:modifiers ["identifier" "type"] :prefixes []}
- "encounter" {:modifiers ["identifier" "type"] :prefixes []}
- "participant" {:modifiers ["identifier" "type"] :prefixes []}
- "episode-of-care" {:modifiers ["identifier" "type"] :prefixes []}
- "care-team" {:modifiers ["identifier" "type"] :prefixes []}
- "context" {:modifiers ["identifier" "type"] :prefixes []}
- "link" {:modifiers ["identifier" "type"] :prefixes []}
- "subject" {:modifiers ["identifier" "type"] :prefixes []}
- "specimen" {:modifiers ["identifier" "type"] :prefixes []}
- "account" {:modifiers ["identifier" "type"] :prefixes []}
- "asserter" {:modifiers ["identifier" "type"] :prefixes []}
- "organization" {:modifiers ["identifier" "type"] :prefixes []}
- "derived-from" {:modifiers ["identifier" "type"] :prefixes []}
- "patient" {:modifiers ["identifier" "type"] :prefixes []}
- "goal" {:modifiers ["identifier" "type"] :prefixes []}
- "performer" {:modifiers ["identifier" "type"] :prefixes []}
- "location" {:modifiers ["identifier" "type"] :prefixes []}
+ "device" {:modifiers ["identifier"] :prefixes []}
+ "based-on" {:modifiers ["identifier"] :prefixes []}
+ "has-member" {:modifiers ["identifier"] :prefixes []}
+ "reason-reference" {:modifiers ["identifier"] :prefixes []}
+ "service-provider" {:modifiers ["identifier"] :prefixes []}
+ "practitioner" {:modifiers ["identifier"] :prefixes []}
+ "diagnosis" {:modifiers ["identifier"] :prefixes []}
+ "focus" {:modifiers ["identifier"] :prefixes []}
+ "part-of" {:modifiers ["identifier"] :prefixes []}
+ "activity-reference" {:modifiers ["identifier"] :prefixes []}
+ "general-practitioner" {:modifiers ["identifier"] :prefixes []}
+ "condition" {:modifiers ["identifier"] :prefixes []}
+ "encounter" {:modifiers ["identifier"] :prefixes []}
+ "participant" {:modifiers ["identifier"] :prefixes []}
+ "episode-of-care" {:modifiers ["identifier"] :prefixes []}
+ "care-team" {:modifiers ["identifier"] :prefixes []}
+ "context" {:modifiers ["identifier"] :prefixes []}
+ "link" {:modifiers ["identifier"] :prefixes []}
+ "subject" {:modifiers ["identifier"] :prefixes []}
+ "specimen" {:modifiers ["identifier"] :prefixes []}
+ "account" {:modifiers ["identifier"] :prefixes []}
+ "asserter" {:modifiers ["identifier"] :prefixes []}
+ "organization" {:modifiers ["identifier"] :prefixes []}
+ "derived-from" {:modifiers ["identifier"] :prefixes []}
+ "patient" {:modifiers ["identifier"] :prefixes []}
+ "goal" {:modifiers ["identifier"] :prefixes []}
+ "performer" {:modifiers ["identifier"] :prefixes []}
+ "location" {:modifiers ["identifier"] :prefixes []}
  "name" {:modifiers ["exact" "contains"] :prefixes []}
  "given" {:modifiers ["exact" "contains"] :prefixes []}
  "family" {:modifiers ["exact" "contains"] :prefixes []}
