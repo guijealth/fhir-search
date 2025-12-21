@@ -2,8 +2,8 @@
   (:require
    [clojure.string :as str]
    [fhir-search.complex :refer [clean]])
-  (:import
-   [java.net URI URLDecoder]))
+  (:import 
+   [java.net URI URLEncoder URLDecoder]))
 
 (def modifier-pattern (re-pattern "(.+):(above|below|code-text|contains|exact|identifier|in|iterate|missing|not|not-in|of-type|text|text-advaced)?$"))
 (def prefix-pattern (re-pattern #"^(eq|ne|gt|lt|ge|le|sa|eb|ap)(\d.*)"))
@@ -134,3 +134,52 @@
                        :fhir.search.join/and)
                :params (parse-query query))
         (clean))))
+
+(defn stringify-param [{:keys [name modifier prefix chained reverse join value params] :as full-param}]
+  (let [param-fn (fn [n m]
+                   (str n
+                        (when m (str ":" (clojure.core/name m)))
+                        "="))
+        value-fn (fn [n p v]
+                   (str
+                    (when n (str n "$"))
+                    (when p (clojure.core/name p))
+                    (URLEncoder/encode v "UTF-8")))]
+    (cond
+      (or chained reverse)
+      ;;
+      (-> (loop [curr-ast full-param full-name ""]
+            (if-not (or (:chained curr-ast) (:reverse curr-ast))
+              (-> curr-ast
+                  (assoc :name (str full-name (:name curr-ast))))
+              (let [{n :name t :type r :reverse p :params} curr-ast]
+                (if r
+                  (recur (first p)
+                         (str full-name "_has:" (when t (str t ":")) n ":"))
+                  (recur (first p)
+                         (str full-name n (when t (str ":" t)) "."))))))
+          stringify-param)
+
+      ;; 
+      (some? value)
+      ;;
+      (str (param-fn name modifier)
+           (value-fn nil prefix value))
+      ;;
+      (= :fhir.search.join/or join)
+      ;;
+      (->> (reduce (fn [o {:keys [name prefix value]}]
+                     (conj o (value-fn name prefix value)))
+                   [] params)
+           (str/join ",")
+           (str (param-fn name (-> params first :modifier)))))))
+
+(defn to-url [{:keys [type id compartment params]}]
+  (let [path (->> [(:type compartment) (:id compartment) type id]
+                  clean (str/join "/")
+                  (str "/"))]
+    (if (seq params)
+      (->> (map stringify-param params)
+           (str/join "&")
+           (str path "?"))
+      path)))

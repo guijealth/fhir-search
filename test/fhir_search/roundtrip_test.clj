@@ -1,19 +1,18 @@
 (ns fhir-search.roundtrip-test
   (:require [clojure.test :refer [deftest testing is]]
-            [fhir-search.uri-query :refer [parse]]
-            [fhir-search.property-test :refer [ast-to-url]]))
+            [fhir-search.uri-query :refer [parse to-url]]))
 
 (deftest context-parsing-tests
   (testing "1.1 Simple resource type /Condition"
     (let [ast {:type "Condition"}
-          url (ast-to-url ast)
+          url (to-url ast)
           parsed (parse url)]
       (is (= ast parsed))))
 
   (testing "1.1 Resource with id - /Condition/c123"
     (let [ast {:type "Condition"
                :id "c123"}
-          url (ast-to-url ast)
+          url (to-url ast)
           parsed (parse url)]
       (is (= ast parsed))))
 
@@ -21,7 +20,7 @@
     (let [ast {:type "Condition"
                :compartment {:type "Patient"
                              :id "p123"}}
-          url (ast-to-url ast)
+          url (to-url ast)
           parsed (parse url)]
       (is (= ast parsed))))
 
@@ -33,7 +32,7 @@
                :params [{:name "code"
                          :modifier :fhir.search.modifier/in
                          :value "http://hspc.org/ValueSet/acute-concerns"}]}
-          url (ast-to-url ast)
+          url (to-url ast)
           parsed (parse url)]
       (is (= ast parsed)))))
 
@@ -45,7 +44,7 @@
                          :value "John"}
                         {:name "family"
                          :value "Doe"}]}
-          url (ast-to-url ast)
+          url (to-url ast)
           parsed (parse url)]
       (is (= ast parsed))))
 
@@ -58,7 +57,7 @@
                                    :value "GivenA"}
                                   {:modifier :fhir.search.modifier/exact
                                    :value "GivenB"}]}]}
-          url (ast-to-url ast)
+          url (to-url ast)
           parsed (parse url)]
       (is (= ast parsed))))
 
@@ -74,7 +73,7 @@
                                    :value "60"}
                                   {:prefix :fhir.search.prefix/gt
                                    :value "100"}]}]}
-          url (ast-to-url ast)
+          url (to-url ast)
           parsed (parse url)]
       (is (= ast parsed)))))
 
@@ -93,7 +92,7 @@
                                    :value "150|http://unitsofmeasure.org|mmol/L"}]}
                         {:name "based-on"
                          :value "ServiceRequest/f8d0ee15-43dc-4090-a2d5-379d247672eb"}]}
-          url (ast-to-url ast)
+          url (to-url ast)
           parsed (parse url)]
       (is (= ast parsed)))))
 
@@ -115,7 +114,7 @@
                                                   :value "John"}]}]}
                              {:name "organization"
                               :value "Organization/909823472760"}]}
-          url (ast-to-url ast)
+          url (to-url ast)
           parsed (parse url)]
       (is (= ast parsed))))
 
@@ -127,7 +126,7 @@
                               :chained true
                               :params [{:name "name"
                                         :value "peter"}]}]}
-          url (ast-to-url ast)
+          url (to-url ast)
           parsed (parse url)]
       (is (= ast parsed))))
 
@@ -140,7 +139,7 @@
                               :chained true
                               :params [{:name "name"
                                         :value "peter"}]}]}
-          url (ast-to-url ast)
+          url (to-url ast)
           parsed (parse  url)]
       (is (= ast parsed))))
 
@@ -157,7 +156,7 @@
                               :chained true
                               :params [{:name "address-state"
                                         :value "MN"}]}]}
-          url (ast-to-url ast)
+          url (to-url ast)
           parsed (parse url)]
       (is (= ast parsed)))))
 
@@ -172,7 +171,7 @@
                               :join :fhir.search.join/and
                               :params [{:name "code"
                                         :value "1234-5"}]}]}
-          url (ast-to-url ast)
+          url (to-url ast)
           parsed (parse url)]
       (is (= ast parsed))))
 
@@ -192,7 +191,7 @@
                              {:name "name"
                               :modifier :fhir.search.modifier/contains
                               :value "Joe"}]}
-          url (ast-to-url ast)
+          url (to-url ast)
           parsed (parse url)]
       (is (= ast parsed))))
   (testing "5.3 Mixted reverse chaining with forward and reverse segments."
@@ -207,6 +206,6 @@
                                         :join :fhir.search.join/and
                                         :params [{:name "_id"
                                                   :value "102"}]}]}]}
-          url (ast-to-url ast)
+          url (to-url ast)
           parsed (parse url)]
       (is (= ast parsed)))))
