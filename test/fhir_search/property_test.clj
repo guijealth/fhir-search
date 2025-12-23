@@ -4,8 +4,7 @@
             [clojure.test.check.clojure-test :refer [defspec]]
             [fhir-search.uri-query :as fq]
             [fhir-search.complex :refer [clean]]
-            [clojure.edn :as edn]
-            [clojure.string :as str]))
+            [clojure.edn :as edn]))
 
 (def simple-resource-types
   (edn/read-string (slurp "resources/fhir_resource_types_samples.edn")))
