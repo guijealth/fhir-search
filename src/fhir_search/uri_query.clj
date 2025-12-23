@@ -115,12 +115,26 @@
                       modifier (when mod
                                  (keyword "fhir.search.modifier" mod))
                       params (parse-value value modifier)
-                      params-c (count params)]
+                      params-c (count params)
+                      has-component-names (seq (filter :name params))]
                   (cond-> {:name (or name key)}
-                    (= 1 params-c) (merge (-> params first clean))
-                    (> params-c 1) (assoc :join :fhir.search.join/or
-                                          :params params)
-                    (seq (filter :name params)) (assoc :composite true)))))
+                    ;;
+                    has-component-names
+                    (assoc :composite true
+                           :params params)
+
+                    ;;
+                    (and has-component-names (> params-c 1))
+                    (assoc :join :fhir.search.join/or)
+
+                    ;; 
+                    (and (= 1 params-c) (not has-component-names))
+                    (merge (-> params first clean))
+
+                    ;; 
+                    (and (> params-c 1) (not has-component-names))
+                    (assoc :join :fhir.search.join/or
+                           :params params)))))
          (mapv #(if (re-find #"_has:" (:name %))
                   (parse-has %)
                   (parse-chain %))))))
@@ -135,7 +149,7 @@
                :params (parse-query query))
         (clean))))
 
-(defn stringify-param [{:keys [name modifier prefix chained reverse join value params] :as full-param}]
+(defn stringify-param [{:keys [name modifier prefix chained reverse join value params composite] :as full-param}]
   (let [param-fn (fn [n m]
                    (str n
                         (when m (str ":" (clojure.core/name m)))
@@ -160,12 +174,21 @@
                          (str full-name n (when t (str ":" t)) "."))))))
           stringify-param)
 
-      ;; 
+      ;; composite params (con o sin OR)
+      composite
+      (->> (map (fn [{:keys [name prefix value]}]
+                  (value-fn name prefix value))
+                params)
+           (str/join ",")
+           (str (param-fn name (-> params first :modifier))))
+
+      ;;
       (some? value)
       ;;
       (str (param-fn name modifier)
            (value-fn nil prefix value))
       ;;
+      ;; 
       (= :fhir.search.join/or join)
       ;;
       (->> (reduce (fn [o {:keys [name prefix value]}]
