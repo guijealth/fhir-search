@@ -1,32 +1,51 @@
 (ns fhir-search.config
   (:require
    [clojure.java.io :as io]
-   [clojure.edn :as edn]))
+   [clojure.edn :as edn]
+   [clojure.pprint :as pprint]))
+
+(defn spit-config! [cfg]
+  (spit "config.edn" (with-out-str (pprint/pprint cfg))))
 
 (defn load-config []
-  (if (.exists (io/file "config.edn"))
-    (-> "config.edn" slurp edn/read-string)
-    (let [default-cfg {:search-params
-                       {:active :r4
-                        :registry {:r4 "resources/search_params/default.edn"}}}]
-      (spit "config.edn" default-cfg)
-      default-cfg)))
+  (let [file (io/file "config.edn")]
+    (if (and (.exists file) (pos? (.length file)))
+      (-> "config.edn" slurp edn/read-string)
+      (do (spit-config! {})
+          {}))))
 
-(defn get-path [alias]
-  (get-in (load-config) [:search-params :registry alias]))
+(defn resolve-params 
+  ([alias]
+  (resolve-params (load-config) alias))
+  ([cfg alias]
+   (get-in cfg [:search-params :registry alias])))
 
-(defn activate-search-params 
-  "Activate an specific search-params config by it's alias."
-  [alias]
-  {:pre [(keyword? alias)]}
-  (when (get-path alias)
-    (try
-      (let [new-cfg (assoc-in (load-config) [:search-params :active] alias)]
-        (spit "config.edn" new-cfg))
-      {:active alias}
-      (catch Exception e
-        (throw
-         (ex-info "Set up failed"
-                  {:type :setup
-                   :message (.getMessage e)}))))))
+(defn active-params
+  "Return the active search-params data"
+  ([]
+  (active-params (load-config)))
+  ([cfg]
+   (let [active-alias (get-in cfg [:search-params :active])]
+     (get-in cfg [:search-params :registry active-alias]))))
 
+(defn use-params
+  "Activate an specific search-params file to use." 
+  ([alias] (use-params (load-config) alias))
+  ([cfg alias]
+   {:pre [(keyword? alias)]}
+   (when (resolve-params cfg alias)
+     (try
+       (let [new-cfg (assoc-in cfg [:search-params :active] alias)]
+         (spit-config! new-cfg)
+         (active-params new-cfg))
+       (catch Exception e
+         (throw
+          (ex-info "Activation failed"
+                   {:description (str "The activation of the alias " alias " search-params has failed.")
+                    :message (.getMessage e)})))))))
+
+(comment
+  ;;Si se activa con éxito devuelve la info del archivo search-params en uso, de lo contrario devuelve nil
+  (use-params :r4)
+  (resolve-params :r4)
+  :.)
