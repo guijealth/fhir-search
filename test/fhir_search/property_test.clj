@@ -7,13 +7,13 @@
             [clojure.edn :as edn]))
 
 (def simple-resource-types
-  (edn/read-string (slurp "resources/fhir_resource_types_samples.edn")))
+  (edn/read-string (slurp "test/resources/fhir_resource_types_samples.edn")))
 
 (def simple-search-params-values
-  (edn/read-string (slurp "resources/fhir_params_values_samples.edn")))
+  (edn/read-string (slurp "test/resources/fhir_params_values_samples.edn")))
 
 (def params-modifiers-and-prefixes
-  (edn/read-string (slurp "resources/fhir_params_modifiers_and_prefixes.edn")))
+  (edn/read-string (slurp "test/resources/fhir_params_modifiers_and_prefixes.edn")))
 
 (def gen-url-ast
   (gen/let [restype (gen/elements (keys simple-resource-types))
