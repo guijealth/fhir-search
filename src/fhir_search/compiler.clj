@@ -20,7 +20,7 @@
 (defn extract-data [restype param-code params-data]
   (let [matches? #(and (= param-code (:code %)) (some #{restype} (:base %)))]
     (when-some [{:keys [type expression]} (first (filter matches? params-data))]
-      {:type type
+      {:type (keyword type)
        :path (->> (string/split expression #"\|")
                   (map string/trim)
                   (filterv #(re-find (re-pattern (str "^\\(?" restype)) %)))})))
@@ -44,7 +44,7 @@
               (string/ends-with? v "|")
               {:system clean}
 
-              :else {:value v})))]
+              :else v)))]
 
     (if (vector? value)
 
@@ -52,19 +52,22 @@
 
       (parser value))))
 
+(def support-param-types
+  {:token (partial parse-token-value)
+   :string identity
+   :date identity
+   :number identity
+   :reference identity
+   :quantity identity
+   :uri identity
+   :composite identity})
+
 (defn format-value [type value]
-  (case type
-    "token" (parse-token-value value)
-    "string" value
-    "date" value
-    "number" value
-    "reference" value
-    "quantity" value
-    "uri" value
-    "composite" value
+  (if-let [formatter (get support-param-types type)]
+    (formatter value)
     (throw (ex-info "Unsupported search parameter type"
                     {:curretn-type type
-                     :support-types ["token" "string" "date" "number" "reference" "quantity" "uri" "composite"]}))))
+                     :support-types (vec (keys support-param-types))}))))
 
 
 (defn enrich
