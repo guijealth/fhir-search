@@ -26,7 +26,9 @@
   (active-params (load-config)))
   ([cfg]
    (let [active-alias (get-in cfg [:search-params :active])]
-     (get-in cfg [:search-params :registry active-alias]))))
+     (-> 
+      (get-in cfg [:search-params :registry active-alias])
+      (assoc :alias active-alias)))))
 
 (defn use-params
   "Activate an specific search-params file to use." 
