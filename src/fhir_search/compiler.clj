@@ -3,7 +3,7 @@
             [clojure.java.io :as io]
             [clojure.string :as string]
             [fhir-search.config :as config])
-  (:import [java.time LocalDate]))
+  (:import [java.time LocalDate LocalDateTime OffsetDateTime]))
 
 (defn load-params
   "Load search parameters from the active configuration.
@@ -66,9 +66,19 @@
       (parser value))))
 
 (defn parse-date-value [value]
-  (if (vector? value)
-    (mapv #(update % :value LocalDate/parse) value)
-    (LocalDate/parse value)))
+  (let [parser (fn [v]
+                 (cond
+                   (not (string/includes? v "T"))
+                   (LocalDate/parse v)
+               
+                   (re-find #"[Z+\-]" (subs v 10))
+                   (OffsetDateTime/parse v)
+               
+                   :else
+                   (LocalDateTime/parse v)))]
+    (if (vector? value)
+    (mapv #(update % :value parser) value)
+    (parser value))))
 
 (defn parse-number-value [value]
   (if (vector? value)
