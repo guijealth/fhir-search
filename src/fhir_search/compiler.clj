@@ -23,18 +23,32 @@
      (when (and (.exists file) (pos? (.length file)))
        (edn/read-string (slurp file))))))
 
+(declare extract-data)
+
+(defn- format-basic-data [restype type expression]
+  {:type (keyword type)
+   :path (->> (string/split expression #"\|")
+              (map string/trim)
+              (filterv #(re-find (re-pattern (str "^\\(?" restype)) %)))})
+
+(defn- build-result [restype {:keys [type expression component]} params-data]
+  (let [data (format-basic-data restype type expression)]
+    (if (= "composite" type)
+      (assoc data :component
+             (mapv #(extract-data (:definition %) params-data) component))
+      data)))
+
 (defn extract-data
-  "Extract type and path information for a search parameter.
-    
-    Returns a map with :type and :path keys if the parameter is found,
-    nil otherwise."
-  [restype param-code params-data]
-  (let [matches? #(and (= param-code (:code %)) (some #{restype} (:base %)))]
-    (when-some [{:keys [type expression]} (first (filter matches? params-data))]
-      {:type (keyword type)
-       :path (->> (string/split expression #"\|")
-                  (map string/trim)
-                  (filterv #(re-find (re-pattern (str "^\\(?" restype)) %)))})))
+  "Extract type, path and component (if exists) information for a search parameter."
+  ([url params-data]
+   (when-some [match (first (filter #(= url (:url %)) params-data))]
+     (build-result (first (:base match)) match params-data)))
+
+  ([restype param-code params-data]
+   (let [matches? #(and (= param-code (:code %))
+                        (some #{restype} (:base %)))]
+     (when-some [match (first (filter matches? params-data))]
+       (build-result restype match params-data)))))
 
 (defn parse-token-value
   "Parse a token value into a map with :system and/or :code keys.
@@ -45,8 +59,7 @@
   (let [parser
         (fn [v]
 
-          (let [[part1 part2] (remove string/blank? (string/split v #"\|"))
-]
+          (let [[part1 part2] (remove string/blank? (string/split v #"\|"))]
 
             (cond
               part2
@@ -70,15 +83,15 @@
                  (cond
                    (not (string/includes? v "T"))
                    (LocalDate/parse v)
-               
+
                    (re-find #"[Z+\-]" (subs v 10))
                    (OffsetDateTime/parse v)
-               
+
                    :else
                    (LocalDateTime/parse v)))]
     (if (vector? value)
-    (mapv #(update % :value parser) value)
-    (parser value))))
+      (mapv #(update % :value parser) value)
+      (parser value))))
 
 (defn parse-number-value [value]
   (if (vector? value)
@@ -97,14 +110,14 @@
 
                      part2
                      (cond
-                       
+
                        (string/starts-with? v "|")
                        {:system part1
                         :code part2}
-                       
+
                        (string/ends-with? v "|")
                        {:value part1
-                        :system part2} 
+                        :system part2}
 
                        :else
                        {:value part1
@@ -124,6 +137,9 @@
     (if (vector? value)
       (mapv #(update % :value parser) value)
       (parser value))))
+
+(defn process-composite [param]
+  param)
 
 (def supported-param-types
   {:token parse-token-value
@@ -164,19 +180,41 @@
          updater (fn [m]
                    (if-let [{:keys [type] :as data} (extract-data restype (:name m) params-data)]
 
-                     (let [formatter (partial format-value type)]
-                       (cond-> (merge m data)
-
+                     (let [formatter (partial format-value type)
+                           base (merge m data)]
+                       (cond 
+                         (= :composite type)
+                         (process-composite base)
+                         
                          (:value m)
-                         (update :value formatter)
+                         (update base :value formatter)
 
                          (:params m)
-                         (update :params formatter)))
+                         (update base :params formatter)))
                      (throw (ex-info "Unsupported search parameter"
                                      {:search-param (:name m)
                                       :description "The current search parameter is not defined at specifications that currently active."}))))]
 
      (update ast :params (partial mapv updater)))))
 
-(comment 
+(comment
+
+  (extract-data "Observation" "code-value-quantity" (load-params))
+
+  (def ex {:type "DiagnosticReport",
+   :join :fhir.search.join/and,
+   :params
+   [{:name "result",
+     :join :fhir.search.join/and,
+     :chained true,
+     :params
+     [{:name "code-value-quantity",
+       :composite true,
+       :params
+       [{:name "code", :value "http://loinc.org|2823-3"}
+        {:name "value", :value "5.4|http://unitsofmeasure.org|mmol/L", :prefix :fhir.search.prefix/gt}]}]}]})
+
+  (enrich ex)
+(extract-data "DiagnosticReport" "code-value-quantity" (load-params))
+  (parse "/DiagnosticReport?result.code-value-quantity=code%24http%3A%2F%2Floinc.org%7C2823-3,value%24gt5.4%7Chttp%3A%2F%2Funitsofmeasure.org%7Cmmol%2FL")
   :.)
