@@ -5,6 +5,11 @@
             [fhir-search.config :as config]))
 
 (defn load-params
+  "Load search parameters from the active configuration.
+   
+   With no args, loads params from the currently active alias.
+   With cfg, uses the active alias from that config.
+   With cfg and alias, loads params for the specific alias."
   ([]
    (load-params (config/load-config) (:alias (config/active-params))))
 
@@ -17,7 +22,12 @@
      (when (and (.exists file) (pos? (.length file)))
        (edn/read-string (slurp file))))))
 
-(defn extract-data [restype param-code params-data]
+(defn extract-data
+  "Extract type and path information for a search parameter.
+    
+    Returns a map with :type and :path keys if the parameter is found,
+    nil otherwise."
+  [restype param-code params-data]
   (let [matches? #(and (= param-code (:code %)) (some #{restype} (:base %)))]
     (when-some [{:keys [type expression]} (first (filter matches? params-data))]
       {:type (keyword type)
@@ -25,7 +35,12 @@
                   (map string/trim)
                   (filterv #(re-find (re-pattern (str "^\\(?" restype)) %)))})))
 
-(defn parse-token-value [value]
+(defn parse-token-value
+  "Parse a token value into a map with :system and/or :code keys.
+    
+    Handles formats: 'system|code', '|code', 'system|', or plain values.
+    Works with both single values and vectors of values."
+  [value]
   (let [parser
         (fn [v]
 
@@ -52,7 +67,7 @@
 
       (parser value))))
 
-(def support-param-types
+(def supported-param-types
   {:token (partial parse-token-value)
    :string identity
    :date identity
@@ -62,15 +77,27 @@
    :uri identity
    :composite identity})
 
-(defn format-value [type value]
-  (if-let [formatter (get support-param-types type)]
+(defn format-value 
+  "Format a search parameter value according to its type.
+    
+    Dispatches to the appropriate formatter based on the parameter type.
+    Throws ex-info if the type is not supported."
+  [type value]
+  (if-let [formatter (get supported-param-types type)]
     (formatter value)
     (throw (ex-info "Unsupported search parameter type"
-                    {:curretn-type type
-                     :support-types (vec (keys support-param-types))}))))
+                    {:current-type type
+                     :support-types (vec (keys supported-param-types))}))))
 
 
 (defn enrich
+  "Enrich an AST with search parameter metadata.
+    
+    Adds :type and :path information to each parameter in the AST,
+    and formats parameter values according to their type.
+    
+    With one arg, uses loaded params from active config.
+    With two args, uses provided params-data."
   ([ast]
    (enrich (load-params) ast))
 
@@ -87,7 +114,9 @@
 
                          (:params m)
                          (update :params formatter)))
-                     m))]
+                     (throw (ex-info "Unsupported search parameter"
+                                     {:search-param (:name m)
+                                      :description "The current search parameter is not defined at specifications that currently active."}))))]
 
      (update ast :params (partial mapv updater)))))
 
