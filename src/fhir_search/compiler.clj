@@ -46,8 +46,7 @@
         (fn [v]
 
           (let [[part1 part2] (remove string/blank? (string/split v #"\|"))
-
-                clean (string/replace v #"\|" "")]
+]
 
             (cond
               part2
@@ -55,10 +54,10 @@
                :code part2}
 
               (string/starts-with? v "|")
-              {:code clean}
+              {:code part1}
 
               (string/ends-with? v "|")
-              {:system clean}
+              {:system part1}
 
               :else v)))]
 
@@ -78,9 +77,7 @@
 
 (defn parse-quantity-value [value]
   (let [parser (fn [v]
-                 (let [[part1 part2 part3] (remove string/blank? (string/split v #"\|"))
-
-                       clean (string/replace v #"\|" "")]
+                 (let [[part1 part2 part3] (remove string/blank? (string/split v #"\|"))]
 
                    (cond
                      part3
@@ -90,13 +87,14 @@
 
                      part2
                      (cond
-                       (string/ends-with? v "|")
-                       {:value part1
-                        :system part2}
-
+                       
                        (string/starts-with? v "|")
                        {:system part1
                         :code part2}
+                       
+                       (string/ends-with? v "|")
+                       {:value part1
+                        :system part2} 
 
                        :else
                        {:value part1
@@ -104,13 +102,13 @@
 
                      (and (string/starts-with? v "|")
                           (string/ends-with? v "|"))
-                     {:system clean}
+                     {:system part1}
 
                      (string/starts-with? v "|")
-                     {:code clean}
+                     {:code part1}
 
                      (string/ends-with? v "|")
-                     {:value clean}
+                     {:value part1}
 
                      :else v)))]
     (if (vector? value)
