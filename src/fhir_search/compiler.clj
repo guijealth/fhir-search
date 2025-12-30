@@ -2,7 +2,8 @@
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as string]
-            [fhir-search.config :as config]))
+            [fhir-search.config :as config])
+  (:import [java.time LocalDate]))
 
 (defn load-params
   "Load search parameters from the active configuration.
@@ -62,22 +63,71 @@
               :else v)))]
 
     (if (vector? value)
-
       (mapv #(update % :value parser) value)
+      (parser value))))
 
+(defn parse-date-value [value]
+  (if (vector? value)
+    (mapv #(update % :value LocalDate/parse) value)
+    (LocalDate/parse value)))
+
+(defn parse-number-value [value]
+  (if (vector? value)
+    (mapv #(update % :value parse-double) value)
+    (parse-double value)))
+
+(defn parse-quantity-value [value]
+  (let [parser (fn [v]
+                 (let [[part1 part2 part3] (remove string/blank? (string/split v #"\|"))
+
+                       clean (string/replace v #"\|" "")]
+
+                   (cond
+                     part3
+                     {:value part1
+                      :system part2
+                      :code part3}
+
+                     part2
+                     (cond
+                       (string/ends-with? v "|")
+                       {:value part1
+                        :system part2}
+
+                       (string/starts-with? v "|")
+                       {:system part1
+                        :code part2}
+
+                       :else
+                       {:value part1
+                        :code part2})
+
+                     (and (string/starts-with? v "|")
+                          (string/ends-with? v "|"))
+                     {:system clean}
+
+                     (string/starts-with? v "|")
+                     {:code clean}
+
+                     (string/ends-with? v "|")
+                     {:value clean}
+
+                     :else v)))]
+    (if (vector? value)
+      (mapv #(update % :value parser) value)
       (parser value))))
 
 (def supported-param-types
-  {:token (partial parse-token-value)
+  {:token parse-token-value
    :string identity
-   :date identity
-   :number identity
+   :date parse-date-value
+   :number parse-number-value
    :reference identity
-   :quantity identity
+   :quantity parse-quantity-value
    :uri identity
    :composite identity})
 
-(defn format-value 
+(defn format-value
   "Format a search parameter value according to its type.
     
     Dispatches to the appropriate formatter based on the parameter type.
@@ -120,3 +170,5 @@
 
      (update ast :params (partial mapv updater)))))
 
+(comment 
+  :.)

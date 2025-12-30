@@ -1,6 +1,7 @@
 (ns fhir-search.compiler-test
   (:require [clojure.test :refer [deftest testing is]]
-            [fhir-search.compiler :as compiler]))
+            [fhir-search.compiler :as compiler])
+  (:import [java.time LocalDate]))
 
 (deftest parse-token-value-test
   (testing "Single value"
@@ -15,6 +16,12 @@
           expected [{:value {:system "loinc" :code "12907-2"}}
                     {:value "12907-2"}]]
       (is (= expected (compiler/parse-token-value value))))))
+
+(deftest parse-date-value-test
+  (testing "Correct date string"
+    (let [date "2010-01-01"
+          expected (LocalDate/parse date)]
+      (is (= expected (compiler/parse-date-value date))))))
 
 (deftest format-value-test
   (testing "Token param value"
