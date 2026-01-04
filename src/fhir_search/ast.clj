@@ -2,8 +2,7 @@
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as string]
-            [fhir-search.config :as config]
-            [fhir-search.uri-query :refer [parse]])
+            [fhir-search.config :as config])
   (:import [java.time LocalDate LocalDateTime OffsetDateTime]))
 
 (defn load-params
@@ -215,4 +214,3 @@
                                       :description "The current search parameter is not defined at specifications that currently active."}))))]
 
      (update ast :params (partial mapv updater)))))
-
