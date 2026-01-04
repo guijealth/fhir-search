@@ -68,7 +68,7 @@
                                       (let [[name type] (str/split part #":")]
                                         {:name name
                                          :chained true
-                                         :type type}))))
+                                         :target type}))))
         
         reverse-part-count (count reverse-part)
 
@@ -77,7 +77,7 @@
                                              (cond-> (case (count curr)
                                                        1 {:name part1}
                                                        2 {:name part2
-                                                          :type part1})
+                                                          :target part1})
                                                (not= idx (dec reverse-part-count))
                                                (assoc :reverse true)))))
         
@@ -98,7 +98,7 @@
                           (map (fn [part]
                                  (let [[name type] (str/split part #":")]
                                    {:name name
-                                    :type type}))))
+                                    :target type}))))
             keys-to-first {:modifier modifier
                            :value value
                            :params params
@@ -166,7 +166,7 @@
             (if-not (or (:chained curr-ast) (:reverse curr-ast))
               (-> curr-ast
                   (assoc :name (str full-name (:name curr-ast))))
-              (let [{n :name t :type r :reverse p :params} curr-ast]
+              (let [{n :name t :target r :reverse p :params} curr-ast]
                 (if r
                   (recur (first p)
                          (str full-name "_has:" (when t (str t ":")) n ":"))
@@ -174,7 +174,7 @@
                          (str full-name n (when t (str ":" t)) "."))))))
           stringify-param)
 
-      ;; composite params (con o sin OR)
+      ;; composite params 
       composite
       (->> (map (fn [{:keys [name prefix value]}]
                   (value-fn name prefix value))

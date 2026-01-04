@@ -1,0 +1,9 @@
+{:search-params
+ {:active :test
+  :registry
+  {:test
+   {:path "path/example"
+    :url "https://url.example"}
+   :other
+   {:path "other/path/example"
+    :url "https://other.url.example"}}}}

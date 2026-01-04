@@ -124,11 +124,11 @@ through examples.
 {:type "Patient"
  :join :fhir.search.join/and
  :params [{:name "general-practitioner"
-           :type "PractitionerRole"
+           :target "PractitionerRole"
            :join :fhir.search.join/and
            :chained true
            :params [{:name "practitioner"
-                     :type "Practitioner"
+                     :target "Practitioner"
                      :join :fhir.search.join/and
                      :chained true
                      :params [{:name "name"
@@ -160,7 +160,7 @@ through examples.
 {:type "DiagnosticReport"
  :join :fhir.search.join/and
  :params [{:name "subject"
-           :type "Patient"
+           :target "Patient"
            :join :fhir.search.join/and
            :chained true
            :params [{:name "name"
@@ -194,7 +194,7 @@ through examples.
 {:type "Patient"
  :join :fhir.search.join/and
  :params [{:name "patient"
-           :type "Observation"
+           :target "Observation"
            :reverse true
            :join :fhir.search.join/and
            :params [{:name "code"
@@ -208,11 +208,11 @@ through examples.
 {:type "Patient"
  :join :fhir.search.join/and
  :params [{:name "patient"
-           :type "Observation"
+           :target "Observation"
            :join :fhir.search.join/and
            :reverse true
            :params [{:name "entity"
-                     :type "AuditEvent"
+                     :target "AuditEvent"
                      :join :fhir.search.join/and
                      :reverse true
                      :params [{:name "agent"
@@ -231,7 +231,7 @@ through examples.
            :chained true
            :join :fhir.search.join/and
            :params [{:name "member"
-                     :type "Group"
+                     :target "Group"
                      :reverse true
                      :join :fhir.search.join/and
                      :params [{:name "_id"

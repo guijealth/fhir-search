@@ -31,7 +31,7 @@
     
       (when activate 
         (log/info "Activating search parameters" {:alias alias})
-        (cfg/use-params config alias))
+        (cfg/use-params! config alias))
     
       (log/info "Download completed" {:alias alias :activated (boolean activate)})
 
