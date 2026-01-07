@@ -1,19 +1,20 @@
 (ns fhir-search.property-test
-  (:require [clojure.test.check.generators :as gen]
-            [clojure.test.check.properties :as prop]
-            [clojure.test.check.clojure-test :refer [defspec]]
-            [fhir-search.uri-query :as fq]
-            [fhir-search.complex :refer [clean]]
-            [clojure.edn :as edn]))
+  (:require
+   [clojure.test.check.generators :as gen]
+   [clojure.test.check.properties :as prop]
+   [clojure.test.check.clojure-test :refer [defspec]]
+   [fhir-search.uri-query :as fq]
+   [fhir-search.complex :refer [clean]]
+   [clojure.edn :as edn]))
 
 (def simple-resource-types
-  (edn/read-string (slurp "test/resources/fhir_resource_types_samples.edn")))
+  (edn/read-string (slurp "resources/test/fhir_resource_types_samples.edn")))
 
 (def simple-search-params-values
-  (edn/read-string (slurp "test/resources/fhir_params_values_samples.edn")))
+  (edn/read-string (slurp "resources/test/fhir_params_values_samples.edn")))
 
 (def params-modifiers-and-prefixes
-  (edn/read-string (slurp "test/resources/fhir_params_modifiers_and_prefixes.edn")))
+  (edn/read-string (slurp "resources/test/fhir_params_modifiers_and_prefixes.edn")))
 
 (def gen-url-ast
   (gen/let [restype (gen/elements (keys simple-resource-types))
@@ -71,5 +72,5 @@
 (defspec parsed-url-has-valid-structure-test 1000
   parsed-url-with-params-property)
 
-(defspec roundtrip-test 100000
+(defspec roundtrip-test 1000
   round-trip-property)

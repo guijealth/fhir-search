@@ -1,6 +1,7 @@
 (ns fhir-search.config-test
-  (:require [clojure.test :refer [deftest testing is]]
-            [fhir-search.config :as config]))
+  (:require
+   [clojure.test :refer [deftest testing is]]
+   [fhir-search.config :as config]))
 
 (def test-config {:search-params
                   {:active :test
