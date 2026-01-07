@@ -1,9 +1,11 @@
 (ns fhir-search.ast
-  (:require [clojure.edn :as edn]
-            [clojure.java.io :as io]
-            [clojure.string :as string]
-            [fhir-search.config :as config])
-  (:import [java.time LocalDate LocalDateTime OffsetDateTime]))
+  (:require
+   [clojure.edn :as edn]
+   [clojure.java.io :as io]
+   [clojure.string :as string]
+   [fhir-search.config :as config])
+  (:import
+   (java.time LocalDate LocalDateTime OffsetDateTime)))
 
 (defn load-params
   "Load search parameters from the active configuration.
@@ -39,11 +41,11 @@
                    #(and (= url (:url %))
                          (some #{restype} (:base %))))]
     (when-some [{:keys [type expression component]} (first (filter matches? params-data))]
-      (let [data (format-basic-data restype type expression)]
-        (if (= "composite" type)
-          (assoc data :component
-                 (mapv #(extract-data {:url (:definition %) :restype restype} params-data) component))
-          data)))))
+      (if (= "composite" type)
+
+        {:component (mapv #(extract-data {:url (:definition %) :restype restype} params-data) component)}
+
+        (format-basic-data restype type expression)))))
 
 (defn parse-token-value
   "Parse a token value into a map with :system and/or :code keys.
@@ -162,16 +164,23 @@
    then enriches each sub-param with its type and formats its value.
      
    Throws ex-info if component count doesn't match."
-  [param components]
-  (when (not= (count (:params param)) (count components))
-    (throw
-     (ex-info "Incorrect composite parameter."
-              {:search-param (:name param)
-               :description (str "This composite parameter requires " (count components) " components. Look at " (-> (config/active-params) :url) " for more information.")})))
+  [composite-param components]
+  (let [count-p (count (:params composite-param))
+        count-c (count components)]
+    (when (not= count-p count-c)
+      (throw
+       (ex-info "Incorrect composite parameter."
+                {:search-param (:name composite-param)
+                 :description
+                 (format
+                  "This composite parameter requires %d components. Look at %s for more information."
+                  count-c
+                  (-> (config/active-params) :url))}))))
+  
   (let [updater (fn [param {:keys [type] :as component}]
                   (-> (merge param component)
                       (update :value (partial format-value type))))]
-    (-> param
+    (-> composite-param
         (dissoc :composite)
         (assoc :type :composite)
         (update :params #(mapv updater % components)))))
@@ -190,18 +199,14 @@
   ([params-data ast]
    (let [restype (:type ast)
          updater (fn [m]
-                   (if-let [{:keys [type component] :as data} (extract-data {:restype restype :code (:name m)} params-data)]
+                   (if-let [{:keys [type] :as data} (extract-data {:restype restype :code (:name m)} params-data)]
 
-                     (let [composite? (:composite m)
+                     (let [formatter (partial format-value type)
 
-                           formatter (partial format-value type)
-
-                           base (merge m (if composite?
-                                           (dissoc data :component)
-                                           data))]
+                           base (merge m data)]
                        (cond
-                         composite?
-                         (process-composite base component)
+                         (:composite m)
+                         (process-composite m (:component data))
 
                          (:value m)
                          (update base :value formatter)
@@ -214,3 +219,5 @@
                                       :description "The current search parameter is not defined at specifications that currently active."}))))]
 
      (update ast :params (partial mapv updater)))))
+
+
