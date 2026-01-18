@@ -1,6 +1,6 @@
 {:search-params
- {:active :r4,
-  :registry
+ {:registry
   {:r4
    {:path "resources/search_parameters/r4.edn",
-    :url "https://hl7.org/fhir/R4/search-parameters.json"}}}}
+    :url "https://hl7.org/fhir/R4/search-parameters.json"}},
+  :active :r4}}
