@@ -15,7 +15,7 @@
 
 (deftest load-config-test
   (testing "Load config by path"
-    (let [cfg (config/load-config "test/resources/test_config.edn")]
+    (let [cfg (config/load-config "resources/test/test_config.edn")]
       (is (= test-config cfg)))))
 
 (deftest resolve-params-test

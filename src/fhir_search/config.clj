@@ -38,19 +38,15 @@
   ([alias] (use-params! (load-config) alias))
   ([cfg alias]
    {:pre [(keyword? alias)]}
-   (when (resolve-params cfg alias)
-     (try
-       (let [new-cfg (assoc-in cfg [:search-params :active] alias)]
-         (spit-config! new-cfg)
-         (active-params new-cfg))
-       (catch Exception e
-         (throw
-          (ex-info "Activation failed"
-                   {:description (str "The activation of the alias " alias " search-params has failed.")
-                    :message (.getMessage e)})))))))
-
-(comment
-  ;;Si se activa con éxito devuelve la info del archivo search-params en uso, de lo contrario devuelve nil
-  (use-params! :r4)
-  (resolve-params :r4)
-  :.)
+   (when-not (resolve-params cfg alias)
+     (throw (ex-info (str "The provided alias " alias " doesn't exist in your configuration")
+              {:current-config (load-config)})))
+   (try
+     (let [new-cfg (assoc-in cfg [:search-params :active] alias)]
+       (spit-config! new-cfg)
+       (active-params new-cfg))
+     (catch Exception e
+       (throw
+        (ex-info "Activation failed"
+                 {:description (str "The activation of the alias " alias " search-params has failed.")
+                  :message (.getMessage e)}))))))

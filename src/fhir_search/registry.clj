@@ -21,17 +21,18 @@
                         :entry
                         (mapv :resource)
                         (filterv #(= "SearchParameter" (:resourceType %))))
-          path (str "resources/search_parameters/" (name alias) ".edn")]
+          path (str "resources/search_parameters/" (name alias) ".edn")
+          new-config (assoc-in config [:search-params :registry alias] {:path path :url url})]
+      
     
-      (log/info "Retrieved search parameters" {:count (count response)})
-      (log/debug "Saving to path" {:path path})
+      (log/info "Retrieved search parameters" {:count (count response)}) 
 
       (spit path (with-out-str (pprint/pprint response))) 
-      (cfg/spit-config! (assoc-in config [:search-params :registry alias] {:path path :url url}))
+      (cfg/spit-config! new-config)
     
       (when activate 
         (log/info "Activating search parameters" {:alias alias})
-        (cfg/use-params! config alias))
+        (cfg/use-params! new-config alias))
     
       (log/info "Download completed" {:alias alias :activated (boolean activate)})
 

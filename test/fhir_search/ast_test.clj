@@ -200,7 +200,7 @@
                   {:restype "Observation"
                    :code "component-code-value-quantity"}
                   test-params-data)]
-      (is (= :composite (:type result)))
+      (is (:component result))
       (is (= 2 (count (:component result))))
       (is (every? #(contains? % :path) (:component result))))))
 
