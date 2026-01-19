@@ -98,22 +98,41 @@ through examples.
 
 
 ```clj
-;; /Observation?code-value-quantity%3Dcode%24loinc%7C12907-2%2Cvalue%24ge150%7Chttp%3A%2F%2Funitsofmeasure.org%7Cmmol%2FL%26based-on%3DServiceRequest%2Ff8d0ee15-43dc-4090-a2d5-379d247672eb
+;; /Observation?component-code-value-quantity%3Dhttp%3A%2F%2Floinc.org%7C8480-6%24lt60
 
-{:type "Observation"
- :join :fhir.search.join/and
- :params [{:name "code-value-quantity"
-           :join :fhir.search.join/or
-           :composite true
-           :params [{:name "code"
-                     :value "loinc|12907-2"}
-                    {:name "value"
-                     :prefix :fhir.search.prefix/ge
-                     :value "150|http://unitsofmeasure.org|mmol/L"}]}
-          {:name "based-on"
-           :value "ServiceRequest/f8d0ee15-43dc-4090-a2d5-379d247672eb"}]}
+{:type "Observation",
+ :join :fhir.search.join/and,
+ :params [{:name "component-code-value-quantity"
+           :composite true,
+           :params [{:components [{:value "http://loinc.org|8480-6"} 
+                                  {:value "60"
+                                   :prefix :fhir.search.prefix/lt}]}]}]}
+
 ```
+### 3.2
+```clj
+;; /Group?characteristic-value%3Dgender%24mixed
 
+{:type "Group"
+ :join :fhir.search.join/and
+ :params [{:name "characteristic-value"
+           :composite true
+           :params [{:components [{:value "gender"} 
+                                  {:value "mixed"}]}]}]}
+
+```
+### 3.3
+```clj
+;; /Questionnaire?context-type-value%3Dfocus%24http%3A%2F%2Fsnomed.info%2Fsct%7C408934002
+
+{:type "Questionnaire"
+ :join :fhir.search.join/and
+ :params [{:name "context-type-value"
+           :composite true
+           :params [{:components [{:value "focus"} 
+                                  {:value "http://snomed.info/sct|408934002"}]}]}]}
+
+```
 ## 4. Chained Params (https://www.hl7.org/fhir/search.html#chaining)
 
 ### 4.1
