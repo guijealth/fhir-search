@@ -100,13 +100,14 @@ through examples.
 ```clj
 ;; /Observation?component-code-value-quantity%3Dhttp%3A%2F%2Floinc.org%7C8480-6%24lt60
 
-{:type "Observation",
- :join :fhir.search.join/and,
- :params [{:name "component-code-value-quantity"
-           :composite true,
-           :params [{:components [{:value "http://loinc.org|8480-6"} 
-                                  {:value "60"
-                                   :prefix :fhir.search.prefix/lt}]}]}]}
+{:type "Observation"
+ :join :fhir.search.join/and
+ :params
+ [{:name "component-code-value-quantity"
+   :components 
+   [{:value "http://loinc.org|8480-6"} 
+   {:value "60"
+    :prefix :fhir.search.prefix/lt}]}]}
 
 ```
 ### 3.2
@@ -115,10 +116,11 @@ through examples.
 
 {:type "Group"
  :join :fhir.search.join/and
- :params [{:name "characteristic-value"
-           :composite true
-           :params [{:components [{:value "gender"} 
-                                  {:value "mixed"}]}]}]}
+ :params 
+ [{:name "characteristic-value"
+   :components 
+   [{:value "gender"} 
+    {:value "mixed"}]}]}
 
 ```
 ### 3.3
@@ -127,10 +129,11 @@ through examples.
 
 {:type "Questionnaire"
  :join :fhir.search.join/and
- :params [{:name "context-type-value"
-           :composite true
-           :params [{:components [{:value "focus"} 
-                                  {:value "http://snomed.info/sct|408934002"}]}]}]}
+ :params 
+ [{:name "context-type-value"
+   :components 
+   [{:value "focus"} 
+    {:value "http://snomed.info/sct|408934002"}]}]}
 
 ```
 ## 4. Chained Params (https://www.hl7.org/fhir/search.html#chaining)
@@ -156,6 +159,7 @@ through examples.
           {:name "organization"
            :value "Organization/909823472760"}]}
 ```
+
 
 ### 4.2
 
