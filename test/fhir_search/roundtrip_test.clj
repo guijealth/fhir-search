@@ -79,17 +79,29 @@
 
 (deftest composite-param-parsing-tests
 
-  (testing "3.1 Composite parameter with multiple components"
+  (testing "3.1 Composite parameter"
+    (let [ast {:type "Group"
+               :join :fhir.search.join/and
+               :params
+               [{:name "characteristic-value"
+                 :components
+                 [{:value "gender"}
+                  {:value "mixed"}]}]}
+          url (to-url ast)
+          parsed (parse url)]
+      (is (= ast parsed))))
+  
+  (testing "3.2 Composite parameter (OR)"
     (let [ast {:type "Observation"
                :join :fhir.search.join/and
                :params [{:name "code-value-quantity"
                          :join :fhir.search.join/or
-                         :composite true
-                         :params [{:name "code"
-                                   :value "loinc|12907-2"}
-                                  {:name "value"
-                                   :prefix :fhir.search.prefix/ge
-                                   :value "150|http://unitsofmeasure.org|mmol/L"}]}
+                         :params [{:components [{:value "loinc|12907-2"}
+                                                {:prefix :fhir.search.prefix/ge
+                                                 :value "150|http://unitsofmeasure.org|mmol/L"}]}
+                                  {:components [{:value "loinc|12907-2"}
+                                                {:prefix :fhir.search.prefix/ge
+                                                 :value "130|http://unitsofmeasure.org|mmol/L"}]}]}
                         {:name "based-on"
                          :value "ServiceRequest/f8d0ee15-43dc-4090-a2d5-379d247672eb"}]}
           url (to-url ast)
@@ -100,62 +112,62 @@
 
   (testing "4.1 Deep chaining with types and modifiers"
     (let [ast {:type "Patient"
-                    :join :fhir.search.join/and
-                    :params [{:name "general-practitioner"
-                              :target "PractitionerRole"
-                              :join :fhir.search.join/and
-                              :chained true
-                              :params [{:name "practitioner"
-                                        :target "Practitioner"
-                                        :join :fhir.search.join/and
-                                        :chained true
-                                        :params [{:name "name"
-                                                  :modifier :fhir.search.modifier/contains
-                                                  :value "John"}]}]}
-                             {:name "organization"
-                              :value "Organization/909823472760"}]}
+               :join :fhir.search.join/and
+               :params [{:name "general-practitioner"
+                         :target "PractitionerRole"
+                         :join :fhir.search.join/and
+                         :chained true
+                         :params [{:name "practitioner"
+                                   :target "Practitioner"
+                                   :join :fhir.search.join/and
+                                   :chained true
+                                   :params [{:name "name"
+                                             :modifier :fhir.search.modifier/contains
+                                             :value "John"}]}]}
+                        {:name "organization"
+                         :value "Organization/909823472760"}]}
           url (to-url ast)
           parsed (parse url)]
       (is (= ast parsed))))
 
   (testing "4.2 Simple chaining without type - /DiagnosticReport?subject.name=peter"
     (let [ast {:type "DiagnosticReport"
-                    :join :fhir.search.join/and
-                    :params [{:name "subject"
-                              :join :fhir.search.join/and
-                              :chained true
-                              :params [{:name "name"
-                                        :value "peter"}]}]}
+               :join :fhir.search.join/and
+               :params [{:name "subject"
+                         :join :fhir.search.join/and
+                         :chained true
+                         :params [{:name "name"
+                                   :value "peter"}]}]}
           url (to-url ast)
           parsed (parse url)]
       (is (= ast parsed))))
 
   (testing "4.3 Chaining with explicit type - /DiagnosticReport?subject:Patient.name=peter"
     (let [ast {:type "DiagnosticReport"
-                    :join :fhir.search.join/and
-                    :params [{:name "subject"
-                              :target "Patient"
-                              :join :fhir.search.join/and
-                              :chained true
-                              :params [{:name "name"
-                                        :value "peter"}]}]}
+               :join :fhir.search.join/and
+               :params [{:name "subject"
+                         :target "Patient"
+                         :join :fhir.search.join/and
+                         :chained true
+                         :params [{:name "name"
+                                   :value "peter"}]}]}
           url (to-url ast)
           parsed (parse  url)]
       (is (= ast parsed))))
 
   (testing "4.4 Multiple chained parameters on same resource"
     (let [ast {:type "Patient"
-                    :join :fhir.search.join/and
-                    :params [{:name "general-practitioner"
-                              :join :fhir.search.join/and
-                              :chained true
-                              :params [{:name "name"
-                                        :value "Joe"}]}
-                             {:name "general-practitioner"
-                              :join :fhir.search.join/and
-                              :chained true
-                              :params [{:name "address-state"
-                                        :value "MN"}]}]}
+               :join :fhir.search.join/and
+               :params [{:name "general-practitioner"
+                         :join :fhir.search.join/and
+                         :chained true
+                         :params [{:name "name"
+                                   :value "Joe"}]}
+                        {:name "general-practitioner"
+                         :join :fhir.search.join/and
+                         :chained true
+                         :params [{:name "address-state"
+                                   :value "MN"}]}]}
           url (to-url ast)
           parsed (parse url)]
       (is (= ast parsed)))))
@@ -164,48 +176,48 @@
 
   (testing "5.1 Simple reverse chaining with _has"
     (let [ast {:type "Patient"
-                    :join :fhir.search.join/and
-                    :params [{:name "patient"
-                              :target "Observation"
-                              :reverse true
-                              :join :fhir.search.join/and
-                              :params [{:name "code"
-                                        :value "1234-5"}]}]}
+               :join :fhir.search.join/and
+               :params [{:name "patient"
+                         :target "Observation"
+                         :reverse true
+                         :join :fhir.search.join/and
+                         :params [{:name "code"
+                                   :value "1234-5"}]}]}
           url (to-url ast)
           parsed (parse url)]
       (is (= ast parsed))))
 
   (testing "5.2 Nested reverse chaining with _has"
     (let [ast {:type "Patient"
-                    :join :fhir.search.join/and
-                    :params [{:name "patient"
-                              :target "Observation"
-                              :join :fhir.search.join/and
-                              :reverse true
-                              :params [{:name "entity"
-                                        :target "AuditEvent"
-                                        :join :fhir.search.join/and
-                                        :reverse true
-                                        :params [{:name "agent"
-                                                  :value "MyUserId"}]}]}
-                             {:name "name"
-                              :modifier :fhir.search.modifier/contains
-                              :value "Joe"}]}
+               :join :fhir.search.join/and
+               :params [{:name "patient"
+                         :target "Observation"
+                         :join :fhir.search.join/and
+                         :reverse true
+                         :params [{:name "entity"
+                                   :target "AuditEvent"
+                                   :join :fhir.search.join/and
+                                   :reverse true
+                                   :params [{:name "agent"
+                                             :value "MyUserId"}]}]}
+                        {:name "name"
+                         :modifier :fhir.search.modifier/contains
+                         :value "Joe"}]}
           url (to-url ast)
           parsed (parse url)]
       (is (= ast parsed))))
   (testing "5.3 Mixted reverse chaining with forward and reverse segments."
     (let [ast {:type "Encounter"
-                    :join :fhir.search.join/and
-                    :params [{:name "patient"
-                              :chained true
-                              :join :fhir.search.join/and
-                              :params [{:name "member"
-                                        :target "Group"
-                                        :reverse true
-                                        :join :fhir.search.join/and
-                                        :params [{:name "_id"
-                                                  :value "102"}]}]}]}
+               :join :fhir.search.join/and
+               :params [{:name "patient"
+                         :chained true
+                         :join :fhir.search.join/and
+                         :params [{:name "member"
+                                   :target "Group"
+                                   :reverse true
+                                   :join :fhir.search.join/and
+                                   :params [{:name "_id"
+                                             :value "102"}]}]}]}
           url (to-url ast)
           parsed (parse url)]
       (is (= ast parsed)))))

@@ -2,12 +2,11 @@
   (:require
    [clojure.string :as str]
    [fhir-search.complex :refer [clean]])
-  (:import 
+  (:import
    [java.net URI URLEncoder URLDecoder]))
 
 (def modifier-pattern (re-pattern "(.+):(above|below|code-text|contains|exact|identifier|in|iterate|missing|not|not-in|of-type|text|text-advaced)?$"))
 (def prefix-pattern (re-pattern #"^(eq|ne|gt|lt|ge|le|sa|eb|ap)(\d.*)"))
-(def component-pattern (re-pattern #"^(.*)\$(.*)$"))
 
 (defn parse-path [path]
   (let [[part1 part2 part3 :as parts] (->> (str/split path #"/")
@@ -18,16 +17,18 @@
       3 {:type part3, :compartment {:type part1, :id part2}})))
 
 (defn parse-value [value modifier]
-  (->> (str/split value #",")
-       (map (fn [v] (let [safe-v (str/replace v #"%(?![0-9A-Fa-f]{2})" "%25")]
-                      (URLDecoder/decode safe-v "UTF-8"))))
-       (mapv (fn [v]
-               (let [[_ cmp v1] (re-find component-pattern v)
-                     [_ prefix v2] (re-find prefix-pattern (or v1 v))]
-                 {:modifier modifier
-                  :name cmp
-                  :value (or v2 v1 v)
-                  :prefix (when prefix (keyword "fhir.search.prefix" prefix))})))))
+  (let [process (fn [v]
+                  (let [[_ prefix v2] (re-find prefix-pattern v)]
+                    {:modifier modifier
+                     :value (or v2 v)
+                     :prefix (when prefix (keyword "fhir.search.prefix" prefix))}))]
+    (->> (str/split value #",")
+         (map (fn [v] (let [safe-v (str/replace v #"%(?![0-9A-Fa-f]{2})" "%25")]
+                        (URLDecoder/decode safe-v "UTF-8"))))
+         (mapv #(if (str/includes? % "$")
+                  {:components (mapv process (str/split % #"\$"))}
+                  (process %))))))
+
 
 (defn build-chain "Builds a nested structure from pre-parsed segments.
  - segments: sequence of maps representing chain links.
@@ -37,14 +38,13 @@
   [segments keys-to-first every-chained?]
   (when (seq segments)
     (let [seg (reverse segments)
-          {:keys [modifier value params composite]} keys-to-first]
+          {:keys [modifier value params]} keys-to-first]
       (->> seg
            (map-indexed (fn [idx item]
                           (cond-> item
                             (zero? idx) (assoc :modifier modifier
                                                :value value
-                                               :params params
-                                               :composite composite)
+                                               :params params)
                             (pos? idx) (assoc :join :fhir.search.join/and))))
            (reduce (fn [acc curr]
                      (let [base (assoc curr :params [acc])]
@@ -53,8 +53,8 @@
                          base))))))))
 
 (defn parse-has [param]
-  (let [{:keys [name modifier value params composite]} param
-        
+  (let [{:keys [name modifier value params]} param
+
         split-name (str/split name #"\.")
 
         forward-part (drop-last split-name)
@@ -62,14 +62,14 @@
         reverse-part (let [s (last split-name)]
                        (->> (re-seq #"(?<=:)(?!_has\b)[^:.]+" s)
                             (partition-all 2)))
-        
+
         forward-segments (->> forward-part
                               (mapv (fn [part]
                                       (let [[name type] (str/split part #":")]
                                         {:name name
                                          :chained true
                                          :target type}))))
-        
+
         reverse-part-count (count reverse-part)
 
         reverse-segments (->> reverse-part
@@ -80,18 +80,17 @@
                                                           :target part1})
                                                (not= idx (dec reverse-part-count))
                                                (assoc :reverse true)))))
-        
+
         all-segments (concat forward-segments reverse-segments)
 
         keys-to-first {:modifier modifier
                        :value value
-                       :params params
-                       :composite composite}]
-    
+                       :params params}]
+
     (build-chain all-segments keys-to-first false)))
 
 (defn parse-chain [param]
-  (let [{:keys [name modifier value params composite]} param]
+  (let [{:keys [name modifier value params]} param]
     (if (re-find #"\." name)
       (let [chain (seq (str/split name #"\."))
             segments (->> chain
@@ -101,8 +100,7 @@
                                     :target type}))))
             keys-to-first {:modifier modifier
                            :value value
-                           :params params
-                           :composite composite}]
+                           :params params}]
         (build-chain segments keys-to-first true))
       param)))
 
@@ -115,24 +113,14 @@
                       modifier (when mod
                                  (keyword "fhir.search.modifier" mod))
                       params (parse-value value modifier)
-                      params-c (count params)
-                      has-component-names (seq (filter :name params))]
+                      params-c (count params)]
                   (cond-> {:name (or name key)}
-                    ;;
-                    has-component-names
-                    (assoc :composite true
-                           :params params)
 
-                    ;;
-                    (and has-component-names (> params-c 1))
-                    (assoc :join :fhir.search.join/or)
-
-                    ;; 
-                    (and (= 1 params-c) (not has-component-names))
+                    (= 1 params-c)
                     (merge (-> params first clean))
 
                     ;; 
-                    (and (> params-c 1) (not has-component-names))
+                    (> params-c 1)
                     (assoc :join :fhir.search.join/or
                            :params params)))))
          (mapv #(if (re-find #"_has:" (:name %))
@@ -149,16 +137,17 @@
                :params (parse-query query))
         (clean))))
 
-(defn stringify-param [{:keys [name modifier prefix chained reverse join value params composite] :as full-param}]
-  (let [param-fn (fn [n m]
-                   (str n
-                        (when m (str ":" (clojure.core/name m)))
-                        "="))
-        value-fn (fn [n p v]
-                   (str
-                    (when n (str n "$"))
-                    (when p (clojure.core/name p))
-                    (URLEncoder/encode v "UTF-8")))]
+(defn stringify-param [{:keys [name modifier prefix chained reverse join value params components] :as full-param}]
+  (let [param->str (fn [n m]
+                     (str n
+                          (when m (str ":" (clojure.core/name m)))
+                          "%3D"))
+        value->str (fn [p v]
+                     (str
+                      (when p (clojure.core/name p))
+                      (URLEncoder/encode v "UTF-8")))
+        build (fn [param mod query]
+                (str (param->str param mod) query))] 
     (cond
       (or chained reverse)
       ;;
@@ -175,27 +164,30 @@
           stringify-param)
 
       ;; composite params 
-      composite
-      (->> (map (fn [{:keys [name prefix value]}]
-                  (value-fn name prefix value))
-                params)
-           (str/join ",")
-           (str (param-fn name (-> params first :modifier))))
+      (or components (some :components params))
 
+      (letfn [(components->str [compts]
+                (->> compts
+                     (map (fn [{p :prefix v :value}] (value->str p v)))
+                     (str/join "%24")))] ;;It's the code for $
+        (build name nil
+               (if components
+                 (components->str components)
+                 (->> (map :components params)
+                      (map components->str)
+                      (str/join "%2C")))))
       ;;
       (some? value)
-      ;;
-      (str (param-fn name modifier)
-           (value-fn nil prefix value))
-      ;;
+
+      (build name modifier (value->str prefix value))
       ;; 
       (= :fhir.search.join/or join)
-      ;;
-      (->> (reduce (fn [o {:keys [name prefix value]}]
-                     (conj o (value-fn name prefix value)))
+
+      (->> (reduce (fn [o {p :prefix v :value}]
+                     (conj o (value->str p v)))
                    [] params)
-           (str/join ",")
-           (str (param-fn name (-> params first :modifier)))))))
+           (str/join "%2C")
+           (build name (-> params first :modifier))))))
 
 (defn to-url [{:keys [type id compartment params]}]
   (let [path (->> [(:type compartment) (:id compartment) type id]
