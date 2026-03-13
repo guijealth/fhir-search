@@ -207,9 +207,9 @@
 (deftest process-composite-test
   (testing "process composite resolves component types correctly"
     (let [param {:name "component-code-value-quantity"
-                 :composite true
-                 :params [{:name "code" :value "loinc|1234"}
-                          {:name "value-quantity" :value "5.4|mg"}]}
+                 :components
+                 [{:value "loinc|1234"} 
+                  {:value "5.4|mg"}]}
 
           components [{:type :token
                        :path ["Observation.code"]}
@@ -219,17 +219,16 @@
           result (ast/process-composite param components)]
 
       (is (= :composite (:type result)))
-      (is (= 2 (count (:params result))))
+      (is (= 2 (count (:components result))))
 
       (is (= {:system "loinc" :code "1234"}
-             (-> result :params first :value)))
+             (-> result :components first :value)))
       (is (= {:value "5.4" :code "mg"}
-             (-> result :params second :value)))))
+             (-> result :components second :value)))))
 
   (testing "incorrect number of components throws"
-    (let [param {:name "test"
-                 :composite true
-                 :params [{:name "code" :value "loinc|1234"}]}
+    (let [param {:name "test" 
+                 :components [{:value "loinc|1234"}]}
           components [{:type :token} {:type :quantity}]]
       (is (thrown-with-msg?
            clojure.lang.ExceptionInfo
@@ -347,13 +346,10 @@
        :join :fhir.search.join/and
        :params
        [{:name "code-value-quantity"
-         :join :fhir.search.join/or
-         :composite true
-         :params
-         [{:name "code"
-           :value "loinc|12907-2"}
-          {:name "value"
-           :prefix :fhir.search.prefix/ge
+         :join :fhir.search.join/and 
+         :components
+         [{:value "loinc|12907-2"}
+          {:prefix :fhir.search.prefix/ge
            :value "150|http://unitsofmeasure.org|mmol/L"}]}
         {:name "based-on"
          :value "ServiceRequest/f8d0ee15-43dc-4090-a2d5-379d247672eb"}]}
@@ -362,15 +358,13 @@
        :join :fhir.search.join/and
        :params
        [{:name "code-value-quantity"
-         :join :fhir.search.join/or
+         :join :fhir.search.join/and
          :type :composite
-         :params
-         [{:name "code" 
-           :value {:system "loinc" :code "12907-2"} 
+         :components
+         [{:value {:system "loinc" :code "12907-2"} 
            :type :token 
            :path ["Observation.code"]}
-          {:name "value"
-           :prefix :fhir.search.prefix/ge
+          {:prefix :fhir.search.prefix/ge
            :type :quantity
            :path ["(Observation.value as Quantity)" "(Observation.value as SampledData)"]
            :value {:value "150" 
