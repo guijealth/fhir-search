@@ -165,8 +165,11 @@
      
    Throws ex-info if component count doesn't match."
   [composite-param components]
-  (let [count-p (count (:params composite-param))
+  ;;Las validaciones van a incluirse en un ns aparte validate.ast
+  (let [count-p (count (:components composite-param)) 
         count-c (count components)]
+     
+    
     (when (not= count-p count-c)
       (throw
        (ex-info "Incorrect composite parameter."
@@ -180,10 +183,9 @@
   (let [updater (fn [param {:keys [type] :as component}]
                   (-> (merge param component)
                       (update :value (partial format-value type))))]
-    (-> composite-param
-        (dissoc :composite)
-        (assoc :type :composite)
-        (update :params #(mapv updater % components)))))
+    (-> composite-param 
+        (assoc :type :composite) 
+        (update :components #(mapv updater % components)))))
 
 (defn enrich
   "Enrich an AST with search parameter metadata.
@@ -205,7 +207,7 @@
 
                            base (merge m data)]
                        (cond
-                         (:composite m)
+                         (:components m)
                          (process-composite m (:component data))
 
                          (:value m)
