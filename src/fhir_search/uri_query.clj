@@ -5,10 +5,10 @@
   (:import
    [java.net URI URLEncoder URLDecoder]))
 
-(def modifier-pattern (re-pattern "(.+):(above|below|code-text|contains|exact|identifier|in|iterate|missing|not|not-in|of-type|text|text-advaced)?$"))
-(def prefix-pattern (re-pattern #"^(eq|ne|gt|lt|ge|le|sa|eb|ap)(\d.*)"))
+(def ^:private modifier-pattern (re-pattern "(.+):(above|below|code-text|contains|exact|identifier|in|iterate|missing|not|not-in|of-type|text|text-advaced)?$"))
+(def ^:private prefix-pattern (re-pattern #"^(eq|ne|gt|lt|ge|le|sa|eb|ap)(\d.*)"))
 
-(defn parse-path [path]
+(defn- parse-path [path]
   (let [[part1 part2 part3 :as parts] (->> (str/split path #"/")
                                            (remove str/blank?))]
     (case (count parts)
@@ -16,12 +16,12 @@
       2 {:type part1, :id part2}
       3 {:type part3, :compartment {:type part1, :id part2}})))
 
-(defn parse-value [value modifier]
-  (let [process (fn [v]
-                  (let [[_ prefix v2] (re-find prefix-pattern v)]
-                    {:modifier modifier
-                     :value (or v2 v)
-                     :prefix (when prefix (keyword "fhir.search.prefix" prefix))}))]
+(defn- parse-value [value modifier]
+  (letfn [(process [v]
+            (let [[_ prefix v2] (re-find prefix-pattern v)]
+              {:modifier modifier
+               :value (or v2 v)
+               :prefix (when prefix (keyword "fhir.search.prefix" prefix))}))]
     (->> (str/split value #",")
          (map (fn [v] (let [safe-v (str/replace v #"%(?![0-9A-Fa-f]{2})" "%25")]
                         (URLDecoder/decode safe-v "UTF-8"))))
@@ -30,7 +30,7 @@
                   (process %))))))
 
 
-(defn build-chain "Builds a nested structure from pre-parsed segments.
+(defn- build-chain "Builds a nested structure from pre-parsed segments.
  - segments: sequence of maps representing chain links.
  - keys-to-first: map containing :modifier, :value, :params, :composite for the first link.
  - every-chained?: boolean value to specify the chained status for every segment."
@@ -52,10 +52,8 @@
                          (assoc base :chained true)
                          base))))))))
 
-(defn parse-has [param]
-  (let [{:keys [name modifier value params]} param
-
-        split-name (str/split name #"\.")
+(defn- parse-has [{:keys [name modifier value params]}]
+  (let [split-name (str/split name #"\.")
 
         forward-part (drop-last split-name)
 
@@ -89,22 +87,21 @@
 
     (build-chain all-segments keys-to-first false)))
 
-(defn parse-chain [param]
-  (let [{:keys [name modifier value params]} param]
-    (if (re-find #"\." name)
-      (let [chain (seq (str/split name #"\."))
-            segments (->> chain
-                          (map (fn [part]
-                                 (let [[name type] (str/split part #":")]
-                                   {:name name
-                                    :target type}))))
-            keys-to-first {:modifier modifier
-                           :value value
-                           :params params}]
-        (build-chain segments keys-to-first true))
-      param)))
+(defn- parse-chain [{:keys [name modifier value params]:as param}]
+  (if (re-find #"\." name)
+    (let [chain (seq (str/split name #"\."))
+          segments (->> chain
+                        (map (fn [part]
+                               (let [[name type] (str/split part #":")]
+                                 {:name name
+                                  :target type}))))
+          keys-to-first {:modifier modifier
+                         :value value
+                         :params params}]
+      (build-chain segments keys-to-first true))
+    param))
 
-(defn parse-query [query]
+(defn- parse-query [query]
   (when-not (str/blank? query)
     (->> (str/split query #"&")
          (map (fn [param]
@@ -138,16 +135,24 @@
         (clean))))
 
 (defn stringify-param [{:keys [name modifier prefix chained reverse join value params components] :as full-param}]
-  (let [param->str (fn [n m]
-                     (str n
-                          (when m (str ":" (clojure.core/name m)))
-                          "%3D"))
-        value->str (fn [p v]
-                     (str
-                      (when p (clojure.core/name p))
-                      (URLEncoder/encode v "UTF-8")))
-        build (fn [param mod query]
-                (str (param->str param mod) query))] 
+  (letfn [(param->str [n m]
+            (str n
+                 (when m (str ":" (clojure.core/name m)))
+                 "%3D"))
+
+          (value->str [p v]
+            (str
+             (when p (clojure.core/name p))
+             (URLEncoder/encode v "UTF-8")))
+
+          (build [param mod query]
+            (str (param->str param mod) query))
+
+          (components->str [compts]
+            (->> compts
+                 (map (fn [{p :prefix v :value}] (value->str p v)))
+                 (str/join "%24"))) ;;It's the code for $
+          ]
     (cond
       (or chained reverse)
       ;;
@@ -166,16 +171,12 @@
       ;; composite params 
       (or components (some :components params))
 
-      (letfn [(components->str [compts]
-                (->> compts
-                     (map (fn [{p :prefix v :value}] (value->str p v)))
-                     (str/join "%24")))] ;;It's the code for $
-        (build name nil
-               (if components
-                 (components->str components)
-                 (->> (map :components params)
-                      (map components->str)
-                      (str/join "%2C")))))
+      (build name nil
+             (if components
+               (components->str components)
+               (->> (map :components params)
+                    (map components->str)
+                    (str/join "%2C"))))
       ;;
       (some? value)
 
